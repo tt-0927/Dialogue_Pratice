@@ -1,6 +1,9 @@
-/**
- * @file  TimeUtil.h
- * @brief 跨模块复用的时间工具（header-only）。
+/*
+ * 文件名:    TimeUtil.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  跨模块复用的时间工具（header-only）。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -21,4 +24,5 @@ inline uint64_t nowMs() {
             .count());
 }
 
-}  // namespace dp
+/* namespace dp */
+}

@@ -1,11 +1,9 @@
-/**
- * @file  Crypto.h
- * @brief 密码哈希用的最小加密工具（SHA-256 + 随机盐）。
- * @details 目标机可能没有 openssl 开发头文件，因此这里自带一份 SHA-256 实现，
- *          避免为了一个哈希函数引入编译期依赖。
- *
- * @warning 这是「够用」而不是「最强」：没有做密钥拉伸（PBKDF2/Argon2）。
- *          教学场景可接受；若将来面向公网，应换成 Argon2id。
+/*
+ * 文件名:    Crypto.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  密码哈希用的最小加密工具（SHA-256 + 随机盐）。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -50,4 +48,5 @@ std::string hashPassword(const std::string& salt, const std::string& password);
 bool verifyPassword(const std::string& salt, const std::string& password,
                     const std::string& expected);
 
-}  // namespace dp
+/* namespace dp */
+}

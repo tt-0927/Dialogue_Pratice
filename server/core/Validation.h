@@ -1,8 +1,9 @@
-/**
- * @file  Validation.h
- * @brief 请求字段的合法性校验（header-only，供各业务服务复用）。
- * @details 集中在一处，保证「登录」与「改资料」对昵称、年龄、简介的判定完全一致，
- *          不会出现两处规则漂移。
+/*
+ * 文件名:    Validation.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  请求字段的合法性校验（header-only，供各业务服务复用）。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -119,4 +120,5 @@ inline bool readAge(const Json& j, int& out) {
     return true;
 }
 
-}  // namespace dp
+/* namespace dp */
+}

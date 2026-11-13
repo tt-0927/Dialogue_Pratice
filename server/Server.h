@@ -1,18 +1,9 @@
-/**
- * @file  Server.h
- * @brief 服务端门面：组装事件循环与各业务服务，管理它们的生命周期。
- * @details 本类不含任何业务逻辑，只做「接线」。分层关系：
- *
- *          ```
- *          Server（组合根，本类）
- *            ├── ServerContext   共享状态 + 出站能力（core）
- *            ├── Reactor         epoll 事件循环（core）
- *            └── ServiceRegistry opcode -> Service 映射（core）
- *                  ├── UserService   登录 / 改资料 / 心跳（business）
- *                  ├── RoomService   进房 / 离房 / 历史（business）
- *                  ├── ChatService   文本消息（business）
- *                  └── VoiceService  语音消息（media）
- *          ```
+/*
+ * 文件名:    Server.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  服务端门面：组装事件循环与各业务服务，管理它们的生命周期。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -24,8 +15,8 @@
 
 namespace dp {
 
-class Reactor;
-class ServerContext;
+class CReactor;
+class CServerContext;
 
 /**
  * @brief 服务端实例。
@@ -34,21 +25,21 @@ class ServerContext;
  *          构造 → start()（建 socket、注册服务）→ run()（阻塞）→ 析构。
  *          所有成员以 `std::unique_ptr` 独占持有，不使用裸 new/delete。
  */
-class Server {
+class CServer {
 public:
-    /// @brief 服务端参数，等价于 ServerConfig；保留别名以兼容既有调用。
-    using Config = ServerConfig;
+    /* 服务端参数，等价于 ServerConfig_S；保留别名以兼容既有调用。 */
+    using Config = ServerConfig_S;
 
     /**
      * @brief 构造服务端（不建立任何 socket）。
      * @param cfg 启动参数。
      */
-    explicit Server(Config cfg);
+    explicit CServer(Config cfg);
 
-    ~Server();
+    ~CServer();
 
-    Server(const Server&) = delete;
-    Server& operator=(const Server&) = delete;
+    CServer(const CServer&) = delete;
+    CServer& operator=(const CServer&) = delete;
 
     /**
      * @brief 创建监听 socket 并注册业务服务。
@@ -62,7 +53,7 @@ public:
      */
     void run();
 
-    /// @brief 请求退出事件循环。
+    /* 请求退出事件循环。 */
     void stop();
 
 private:
@@ -82,20 +73,25 @@ private:
      */
     bool openDatabases();
 
-    /// @brief users 表为空时插入几个默认账号，方便首次部署直接试用。
+    /* users 表为空时插入几个默认账号，方便首次部署直接试用。 */
     void seedDefaultUsers();
 
-    /// @brief 每秒被 Reactor 调一次，内部判断是否到了归档时间。
+    /* 每秒被 CReactor 调一次，内部判断是否到了归档时间。 */
     void onSecondTick();
 
-    /// @brief 把超过保留期的聊天记录移入归档库。
+    /* 把超过保留期的聊天记录移入归档库。 */
     void pruneMessages();
 
-    Config                         cfg_;      ///< 启动参数副本
-    std::unique_ptr<ServerContext> ctx_;      ///< 共享上下文
-    std::unique_ptr<Reactor>       reactor_;  ///< 事件循环
-    bool                           started_ = false;
-    std::chrono::steady_clock::time_point lastPrune_;  ///< 上次归档时间
+    /* < 启动参数副本 */
+    Config                         m_stCfg;
+    /* < 共享上下文 */
+    std::unique_ptr<CServerContext> m_stCtx;
+    /* < 事件循环 */
+    std::unique_ptr<CReactor>       reactor_;
+    bool                           m_nStarted = false;
+    /* < 上次归档时间 */
+    std::chrono::steady_clock::time_point m_stLastPrune;
 };
 
-}  // namespace dp
+/* namespace dp */
+}

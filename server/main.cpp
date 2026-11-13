@@ -1,4 +1,12 @@
-// server/main.cpp
+/*
+ * 文件名:    main.cpp
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  main 实现文件，包含相关接口的具体实现。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+ */
+
+/* server/main.cpp */
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,9 +17,15 @@
 
 namespace {
 
+/*
+ * 功能描述:  执行 usage 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [in]  prog  参数。
+ * return:    void
+ */
 void usage(const char* prog) {
     std::printf(
-        "Dialogue Pratice Server\n"
+        "Dialogue Pratice CServer\n"
         "用法: %s [选项]\n"
         "  -b, --bind <addr>        监听地址，默认 0.0.0.0\n"
         "  -p, --port <port>        监听端口，默认 9000\n"
@@ -28,6 +42,15 @@ void usage(const char* prog) {
         prog);
 }
 
+/*
+ * 功能描述:  执行 takeValue 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [in]  argc  参数。
+ * param [in]  argv  参数。
+ * param [out]  i  参数。
+ * param [in]  name  参数。
+ * return:    返回值，含义见功能描述。
+ */
 const char* takeValue(int argc, char** argv, int& i, const char* name) {
     if (i + 1 >= argc) {
         std::fprintf(stderr, "缺少参数值: %s\n", name);
@@ -36,10 +59,18 @@ const char* takeValue(int argc, char** argv, int& i, const char* name) {
     return argv[++i];
 }
 
-}  // namespace
+/* namespace */
+}
 
+/*
+ * 功能描述:  执行 main 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [in]  argc  参数。
+ * param [in]  argv  参数。
+ * return:    返回值，含义见功能描述。
+ */
 int main(int argc, char** argv) {
-    dp::Server::Config cfg;
+    dp::CServer::Config cfg;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -89,12 +120,12 @@ int main(int argc, char** argv) {
             continue;
         }
         if (a == "--log-level") {
-            dp::LogLevel lv;
-            if (!dp::Logger::parseLevel(takeValue(argc, argv, i, "--log-level"), lv)) {
+            dp::LogLevel_EN lv;
+            if (!dp::CLogger::parseLevel(takeValue(argc, argv, i, "--log-level"), lv)) {
                 std::fprintf(stderr, "非法日志级别，可选 debug|info|warn|error\n");
                 return 2;
             }
-            dp::Logger::instance().setLevel(lv);
+            dp::CLogger::instance().setLevel(lv);
             continue;
         }
 
@@ -112,7 +143,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    dp::Server server(cfg);
+    dp::CServer server(cfg);
     if (!server.start()) {
         LOG_ERROR("server start failed");
         return 1;

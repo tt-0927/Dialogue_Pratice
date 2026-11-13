@@ -1,11 +1,9 @@
-/**
- * @file  Database.h
- * @brief SQLite 的轻量 RAII 封装（连接 + 预处理语句）。
- * @details 只暴露业务层需要的最小接口，把 sqlite3 的类型挡在实现文件里，
- *          避免每个包含本头文件的翻译单元都拖进 68 万行的 sqlite3.h。
- *
- * @note 服务端是单线程 reactor，所有访问都发生在事件循环线程，
- *       因此不需要连接池或额外加锁。
+/*
+ * 文件名:    Database.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  SQLite 的轻量 RAII 封装（连接 + 预处理语句）。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -26,13 +24,13 @@ namespace dp {
  *          - `foreign_keys=ON`
  *          - `busy_timeout=3000`（万一有多进程访问，避免立即报 SQLITE_BUSY）
  */
-class Database {
+class CDatabase {
 public:
-    Database() = default;
-    ~Database();
+    CDatabase() = default;
+    ~CDatabase();
 
-    Database(const Database&) = delete;
-    Database& operator=(const Database&) = delete;
+    CDatabase(const CDatabase&) = delete;
+    CDatabase& operator=(const CDatabase&) = delete;
 
     /**
      * @brief 打开（不存在则创建）数据库文件。
@@ -43,10 +41,10 @@ public:
      */
     bool open(const std::string& path, std::string* error);
 
-    /// @brief 关闭连接（幂等）。
+    /* 关闭连接（幂等）。 */
     void close();
 
-    /// @brief 是否已打开。
+    /* 是否已打开。 */
     bool isOpen() const { return db_ != nullptr; }
 
     /**
@@ -57,10 +55,10 @@ public:
      */
     bool exec(const std::string& sql, std::string* error);
 
-    /// @brief 最近一次错误的可读描述。
+    /* 最近一次错误的可读描述。 */
     std::string lastError() const;
 
-    /// @brief 底层句柄，仅供 Statement 使用。
+    /* 底层句柄，仅供 CStatement 使用。 */
     sqlite3* handle() const { return db_; }
 
 private:
@@ -73,33 +71,33 @@ private:
  * @details 构造时即编译 SQL；析构自动 finalize。
  *          所有 `bind*` / `column*` 的下标都是 1-based（沿用 sqlite 约定）。
  */
-class Statement {
+class CStatement {
 public:
     /**
      * @brief 编译一条 SQL。
      * @param db  已打开的数据库。
      * @param sql 带 `?` 占位符的语句。
      */
-    Statement(Database& db, const std::string& sql);
+    CStatement(CDatabase& db, const std::string& sql);
 
-    ~Statement();
+    ~CStatement();
 
-    Statement(const Statement&) = delete;
-    Statement& operator=(const Statement&) = delete;
+    CStatement(const CStatement&) = delete;
+    CStatement& operator=(const CStatement&) = delete;
 
-    /// @brief 编译是否成功。
-    bool ok() const { return stmt_ != nullptr; }
+    /* 编译是否成功。 */
+    bool ok() const { return m_pStmt != nullptr; }
 
-    /// @brief 编译或执行阶段的错误描述。
-    std::string error() const { return error_; }
+    /* 编译或执行阶段的错误描述。 */
+    std::string error() const { return m_strError; }
 
-    /// @brief 绑定文本（sqlite 会复制一份，调用后原串可释放）。
+    /* 绑定文本（sqlite 会复制一份，调用后原串可释放）。 */
     void bindText(int index, const std::string& value);
 
-    /// @brief 绑定 64 位整数。
+    /* 绑定 64 位整数。 */
     void bindInt64(int index, int64_t value);
 
-    /// @brief 绑定二进制块。
+    /* 绑定二进制块。 */
     void bindBlob(int index, const std::string& value);
 
     /**
@@ -109,28 +107,32 @@ public:
      */
     bool step();
 
-    /// @brief 上一次 step() 是否因错误而返回 false。
-    bool failed() const { return failed_; }
+    /* 上一次 step() 是否因错误而返回 false。 */
+    bool failed() const { return m_nFailed; }
 
-    /// @brief 读取整数列。
+    /* 读取整数列。 */
     int64_t columnInt64(int column) const;
 
-    /// @brief 读取文本列。
+    /* 读取文本列。 */
     std::string columnText(int column) const;
 
-    /// @brief 读取二进制列。
+    /* 读取二进制列。 */
     std::string columnBlob(int column) const;
 
-    /// @brief 该列是否为 NULL。
+    /* 该列是否为 NULL。 */
     bool columnIsNull(int column) const;
 
-    /// @brief 复位以便重复执行（保留绑定值）。
+    /* 复位以便重复执行（保留绑定值）。 */
     void reset();
 
 private:
-    sqlite3_stmt* stmt_ = nullptr;   ///< 已编译语句
-    bool          failed_ = false;   ///< step() 是否出错
-    std::string   error_;            ///< 错误描述
+    /* < 已编译语句 */
+    sqlite3_stmt* m_pStmt = nullptr;
+    /* < step() 是否出错 */
+    bool          m_nFailed = false;
+    /* < 错误描述 */
+    std::string   m_strError;
 };
 
-}  // namespace dp
+/* namespace dp */
+}

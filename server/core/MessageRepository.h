@@ -1,10 +1,9 @@
-/**
- * @file  MessageRepository.h
- * @brief 聊天记录的写入与查询。
- * @details 聊天数据与用户数据分库存放：本类只碰 `messages.db`。
- *
- *          服务端内存里仍保留环形缓冲（`Room::history_`）用于快速回放，
- *          数据库是持久层：进程重启后历史不丢，也支持按用户/房间做统计。
+/*
+ * 文件名:    MessageRepository.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  聊天记录的写入与查询。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -21,11 +20,11 @@ namespace dp {
 /**
  * @brief 聊天记录表的访问对象。
  */
-class MessageRepository {
+class CMessageRepository {
 public:
-    MessageRepository() = default;
-    MessageRepository(const MessageRepository&) = delete;
-    MessageRepository& operator=(const MessageRepository&) = delete;
+    CMessageRepository() = default;
+    CMessageRepository(const CMessageRepository&) = delete;
+    CMessageRepository& operator=(const CMessageRepository&) = delete;
 
     /**
      * @brief 打开聊天记录数据库。
@@ -42,12 +41,12 @@ public:
      */
     bool ensureSchema(std::string* error);
 
-    /// @brief 是否已打开。
+    /* 是否已打开。 */
     bool isOpen() const { return db_.isOpen(); }
 
     /**
      * @brief 写入一条消息。
-     * @param roomId    房间号（`HistoryEntry` 本身不带房间字段，由调用方提供）。
+     * @param roomId    房间号（`HistoryEntry_S` 本身不带房间字段，由调用方提供）。
      * @param entry     历史条目（文本或语音）。
      * @param accountId 持久用户 id，0 表示匿名（未匹配到用户库）。
      * @param error     失败原因。
@@ -55,7 +54,7 @@ public:
      * @details 以 `(room_id, seq)` 作为唯一键，重复写入会被忽略而不是报错——
      *          这样服务端重启后重放同一条消息不会产生重复记录。
      */
-    bool append(const std::string& roomId, const HistoryEntry& entry, int64_t accountId,
+    bool append(const std::string& roomId, const HistoryEntry_S& entry, int64_t accountId,
                 std::string* error);
 
     /**
@@ -64,9 +63,9 @@ public:
      * @param limit  最多返回多少条。
      * @retval 按 seq 正序排列；`from` 字段回填为发送者的连接 id（与内存缓冲一致）。
      */
-    std::vector<HistoryEntry> loadRecent(const std::string& roomId, int limit);
+    std::vector<HistoryEntry_S> loadRecent(const std::string& roomId, int limit);
 
-    /// @brief 记录总数。
+    /* 记录总数。 */
     size_t count();
 
     /**
@@ -92,7 +91,9 @@ public:
     size_t countExpired(int retentionDays);
 
 private:
-    Database db_;   ///< messages.db 连接
+    /* < messages.db 连接 */
+    CDatabase db_;
 };
 
-}  // namespace dp
+/* namespace dp */
+}

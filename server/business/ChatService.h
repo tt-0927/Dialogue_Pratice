@@ -1,6 +1,9 @@
-/**
- * @file  ChatService.h
- * @brief 文本消息业务：校验、分配序号、落历史、广播。
+/*
+ * 文件名:    ChatService.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  文本消息业务：校验、分配序号、落历史、广播。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -18,15 +21,15 @@ namespace dp {
  *          广播时**不排除发送者本人**：客户端依赖服务端回显来渲染自己的气泡，
  *          从而保证消息顺序与服务端完全一致，不需要本地插入。
  */
-class ChatService final : public Service {
+class ChatService final : public CService {
 public:
-    using Service::Service;
+    using CService::CService;
 
     /**
      * @brief 声明负责的 opcode。
      * @retval 只含 `Chat` 的单元素列表。
      */
-    std::vector<OpCode> opcodes() const override;
+    std::vector<OpCode_EN> opcodes() const override;
 
     /**
      * @brief 处理文本消息。
@@ -34,7 +37,8 @@ public:
      * @param op      固定为 `Chat`。
      * @param payload 负载：`{"text":"..."}`，正文 1..4000 字节。
      */
-    void handle(Session& session, OpCode op, const Json& payload) override;
+    void handle(CSession& session, OpCode_EN op, const Json& payload) override;
 };
 
-}  // namespace dp
+/* namespace dp */
+}

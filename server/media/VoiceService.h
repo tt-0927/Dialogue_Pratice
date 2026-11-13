@@ -1,10 +1,9 @@
-/**
- * @file  VoiceService.h
- * @brief 媒体层：语音消息的校验、存储与转发。
- * @details 服务端不解析音频内容，只当作不透明字节流搬运。这是刻意设计——
- *          Opus 解码需要重采样与编解码器状态，放在服务端既耗 CPU 又毫无必要，
- *          客户端本地解码即可。将来引入实时音视频（RTC）时，
- *          本类是同一条链路上的扩展点。
+/*
+ * 文件名:    VoiceService.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  媒体层：语音消息的校验、存储与转发。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -22,15 +21,15 @@ namespace dp {
  *          转发时直接复用请求里的 Base64 字符串，省掉一次「解码再编码」，
  *          大房间高并发下这点开销并不小。
  */
-class VoiceService final : public Service {
+class CVoiceService final : public CService {
 public:
-    using Service::Service;
+    using CService::CService;
 
     /**
      * @brief 声明负责的 opcode。
      * @retval 只含 `Voice` 的单元素列表。
      */
-    std::vector<OpCode> opcodes() const override;
+    std::vector<OpCode_EN> opcodes() const override;
 
     /**
      * @brief 处理语音消息。
@@ -38,7 +37,8 @@ public:
      * @param op      固定为 `Voice`。
      * @param payload 负载：`{"durationMs":3200,"opus":"<base64 DPV1>"}`。
      */
-    void handle(Session& session, OpCode op, const Json& payload) override;
+    void handle(CSession& session, OpCode_EN op, const Json& payload) override;
 };
 
-}  // namespace dp
+/* namespace dp */
+}

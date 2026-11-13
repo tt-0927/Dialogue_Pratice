@@ -1,6 +1,9 @@
-/**
- * @file  Reactor.cpp
- * @brief Reactor 的实现：epoll 事件循环、连接生命周期与出站写缓冲管理。
+/*
+ * 文件名:    Reactor.cpp
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  CReactor 的实现：epoll 事件循环、连接生命周期与出站写缓冲管理。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #include "server/core/Reactor.h"
@@ -28,40 +31,57 @@
 namespace dp {
 namespace {
 
-constexpr int kMaxEvents = 256;   ///< 单次 epoll_wait 最多取出的就绪事件数
+/* < 单次 epoll_wait 最多取出的就绪事件数 */
+constexpr int kMaxEvents = 256;
 
-}  // namespace
+/* namespace */
+}
 
-Reactor::Reactor(ServerContext& ctx) : ctx_(ctx) {}
+CReactor::CReactor(CServerContext& ctx) : m_stCtx(ctx) {}
 
-Reactor::~Reactor() {
+/*
+ * 功能描述:  执行 CReactor 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    返回值，含义见功能描述。
+ */
+CReactor::~CReactor() {
     shutdownAll();
 }
 
-// ---------------------------------------------------------------- 启动 / 关闭
+/* ---------------------------------------------------------------- 启动 / 关闭 */
 
-bool Reactor::setupSignalFd() {
+/*
+ * 功能描述:  执行 setupSignalFd 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    返回值，含义见功能描述。
+ */
+bool CReactor::setupSignalFd() {
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGPIPE);
 
-    // 先屏蔽，再用 signalfd 统一从事件循环里取信号，避免异步打断 epoll_wait。
+    /* 先屏蔽，再用 signalfd 统一从事件循环里取信号，避免异步打断 epoll_wait。 */
     if (::sigprocmask(SIG_BLOCK, &mask, nullptr) < 0) {
         LOG_ERROR("sigprocmask: %s", std::strerror(errno));
         return false;
     }
-    signalFd_ = ::signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
-    if (signalFd_ < 0) {
+    m_nSignalFd = ::signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    if (m_nSignalFd < 0) {
         LOG_ERROR("signalfd: %s", std::strerror(errno));
         return false;
     }
     return true;
 }
 
-bool Reactor::setupListenSocket() {
-    const ServerConfig& cfg = ctx_.config();
+/*
+ * 功能描述:  执行 setupListenSocket 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    返回值，含义见功能描述。
+ */
+bool CReactor::setupListenSocket() {
+    const ServerConfig_S& cfg = m_stCtx.config();
 
     const int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fd < 0) {
@@ -91,22 +111,27 @@ bool Reactor::setupListenSocket() {
         return false;
     }
 
-    listenFd_ = fd;
+    m_nListenFd = fd;
     return true;
 }
 
-bool Reactor::setupEpoll() {
-    epollFd_ = ::epoll_create1(EPOLL_CLOEXEC);
-    if (epollFd_ < 0) {
+/*
+ * 功能描述:  执行 setupEpoll 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    返回值，含义见功能描述。
+ */
+bool CReactor::setupEpoll() {
+    m_nEpollFd = ::epoll_create1(EPOLL_CLOEXEC);
+    if (m_nEpollFd < 0) {
         LOG_ERROR("epoll_create1: %s", std::strerror(errno));
         return false;
     }
 
-    // 监听 fd 同样用边沿触发：accept 必须循环到 EAGAIN，否则会漏掉新连接。
+    /* 监听 fd 同样用边沿触发：accept 必须循环到 EAGAIN，否则会漏掉新连接。 */
     epoll_event ev{};
     ev.events = EPOLLIN | EPOLLET;
     ev.data.u64 = kListenId;
-    if (::epoll_ctl(epollFd_, EPOLL_CTL_ADD, listenFd_, &ev) < 0) {
+    if (::epoll_ctl(m_nEpollFd, EPOLL_CTL_ADD, m_nListenFd, &ev) < 0) {
         LOG_ERROR("epoll_ctl ADD listen: %s", std::strerror(errno));
         return false;
     }
@@ -114,19 +139,24 @@ bool Reactor::setupEpoll() {
     epoll_event sev{};
     sev.events = EPOLLIN;
     sev.data.u64 = kSignalId;
-    if (::epoll_ctl(epollFd_, EPOLL_CTL_ADD, signalFd_, &sev) < 0) {
+    if (::epoll_ctl(m_nEpollFd, EPOLL_CTL_ADD, m_nSignalFd, &sev) < 0) {
         LOG_ERROR("epoll_ctl ADD signalfd: %s", std::strerror(errno));
         return false;
     }
     return true;
 }
 
-bool Reactor::start() {
+/*
+ * 功能描述:  执行 start 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    返回值，含义见功能描述。
+ */
+bool CReactor::start() {
     if (!setupSignalFd()) return false;
     if (!setupListenSocket()) return false;
     if (!setupEpoll()) return false;
 
-    const ServerConfig& cfg = ctx_.config();
+    const ServerConfig_S& cfg = m_stCtx.config();
     LOG_INFO("dialogue server ready | listen=%s:%u backlog=%d heartbeat=%ds maxConn=%zu",
              cfg.bindAddr.c_str(), cfg.port, cfg.backlog,
              cfg.heartbeatTimeoutSec, cfg.maxConnections);
@@ -136,44 +166,54 @@ bool Reactor::start() {
     return true;
 }
 
-void Reactor::shutdownAll() {
-    SessionManager& sessions = ctx_.sessions();
+/*
+ * 功能描述:  执行 shutdownAll 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::shutdownAll() {
+    CSessionManager& sessions = m_stCtx.sessions();
 
     if (!sessions.all().empty()) {
         LOG_INFO("closing %zu session(s)", sessions.size());
     }
     for (auto& kv : sessions.all()) {
-        Session* s = kv.second.get();
-        if (epollFd_ >= 0 && s->fd() >= 0) {
-            ::epoll_ctl(epollFd_, EPOLL_CTL_DEL, s->fd(), nullptr);
+        CSession* s = kv.second.get();
+        if (m_nEpollFd >= 0 && s->fd() >= 0) {
+            ::epoll_ctl(m_nEpollFd, EPOLL_CTL_DEL, s->fd(), nullptr);
         }
     }
-    // SessionManager 无 clear()，逐个删除以触发 fd 关闭。
+    /* CSessionManager 无 clear()，逐个删除以触发 fd 关闭。 */
     while (!sessions.all().empty()) {
         sessions.remove(sessions.all().begin()->first);
     }
 
-    if (listenFd_ >= 0) { ::close(listenFd_); listenFd_ = -1; }
-    if (signalFd_ >= 0) { ::close(signalFd_); signalFd_ = -1; }
-    if (epollFd_ >= 0)  { ::close(epollFd_);  epollFd_ = -1; }
+    if (m_nListenFd >= 0) { ::close(m_nListenFd); m_nListenFd = -1; }
+    if (m_nSignalFd >= 0) { ::close(m_nSignalFd); m_nSignalFd = -1; }
+    if (m_nEpollFd >= 0)  { ::close(m_nEpollFd);  m_nEpollFd = -1; }
 }
 
-// ---------------------------------------------------------------- 事件循环
+/* ---------------------------------------------------------------- 事件循环 */
 
-void Reactor::run() {
-    running_ = true;
+/*
+ * 功能描述:  执行 run 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::run() {
+    m_nRunning = true;
     std::vector<epoll_event> events(kMaxEvents);
     auto lastTick = std::chrono::steady_clock::now();
 
-    while (running_) {
-        const int n = ::epoll_wait(epollFd_, events.data(), kMaxEvents, 1000);
+    while (m_nRunning) {
+        const int n = ::epoll_wait(m_nEpollFd, events.data(), kMaxEvents, 1000);
         if (n < 0) {
             if (errno == EINTR) continue;
             LOG_ERROR("epoll_wait: %s", std::strerror(errno));
             break;
         }
 
-        for (int i = 0; i < n && running_; ++i) {
+        for (int i = 0; i < n && m_nRunning; ++i) {
             const uint32_t ev = events[i].events;
             const uint64_t id = events[i].data.u64;
 
@@ -186,7 +226,7 @@ void Reactor::run() {
                 continue;
             }
 
-            Session* s = ctx_.sessions().find(id);
+            CSession* s = m_stCtx.sessions().find(id);
             if (s == nullptr) continue;
 
             if (ev & (EPOLLHUP | EPOLLERR)) {
@@ -196,15 +236,15 @@ void Reactor::run() {
             if (ev & EPOLLIN) {
                 handleReadable(*s);
             }
-            if ((ev & EPOLLOUT) && s->state() != SessionState::Closing) {
+            if ((ev & EPOLLOUT) && s->state() != SessionState_EN::Closing) {
                 handleWritable(*s);
             }
-            if ((ev & EPOLLRDHUP) && s->state() != SessionState::Closing) {
+            if ((ev & EPOLLRDHUP) && s->state() != SessionState_EN::Closing) {
                 requestClose(*s, "peer shutdown");
             }
         }
 
-        // 统一回收：保证任何 handler 都不会在遍历过程中销毁 Session。
+        /* 统一回收：保证任何 handler 都不会在遍历过程中销毁 CSession。 */
         reapSessions();
 
         const auto now = std::chrono::steady_clock::now();
@@ -218,17 +258,23 @@ void Reactor::run() {
     LOG_INFO("event loop stopped");
 }
 
-void Reactor::handleAccept() {
-    SessionManager& sessions = ctx_.sessions();
-    const ServerConfig& cfg = ctx_.config();
+/*
+ * 功能描述:  执行 handleAccept 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::handleAccept() {
+    CSessionManager& sessions = m_stCtx.sessions();
+    const ServerConfig_S& cfg = m_stCtx.config();
 
     for (;;) {
         sockaddr_in addr{};
         socklen_t addrLen = sizeof(addr);
-        const int fd = ::accept4(listenFd_, reinterpret_cast<sockaddr*>(&addr), &addrLen,
+        const int fd = ::accept4(m_nListenFd, reinterpret_cast<sockaddr*>(&addr), &addrLen,
                                  SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (fd < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) return;   // ET：已取完
+            /* ET：已取完 */
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return;
             if (errno == EINTR) continue;
             if (errno == EMFILE || errno == ENFILE) {
                 LOG_ERROR("accept: out of file descriptors (%s)", std::strerror(errno));
@@ -252,12 +298,12 @@ void Reactor::handleAccept() {
         ::inet_ntop(AF_INET, &addr.sin_addr, ip, sizeof(ip));
         std::string peer = std::string(ip) + ":" + std::to_string(ntohs(addr.sin_port));
 
-        Session* s = sessions.add(fd, std::move(peer));
+        CSession* s = sessions.add(fd, std::move(peer));
 
         epoll_event ev{};
         ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
         ev.data.u64 = s->id();
-        if (::epoll_ctl(epollFd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
+        if (::epoll_ctl(m_nEpollFd, EPOLL_CTL_ADD, fd, &ev) < 0) {
             LOG_ERROR("epoll_ctl ADD fd=%d: %s", fd, std::strerror(errno));
             sessions.remove(s->id());
             continue;
@@ -268,138 +314,174 @@ void Reactor::handleAccept() {
     }
 }
 
-void Reactor::handleSignal() {
+/*
+ * 功能描述:  执行 handleSignal 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::handleSignal() {
     signalfd_siginfo si{};
     for (;;) {
-        const ssize_t n = ::read(signalFd_, &si, sizeof(si));
+        const ssize_t n = ::read(m_nSignalFd, &si, sizeof(si));
         if (n != static_cast<ssize_t>(sizeof(si))) return;
         if (si.ssi_signo == SIGINT || si.ssi_signo == SIGTERM) {
             LOG_INFO("received signal %u, stopping", si.ssi_signo);
-            running_ = false;
+            m_nRunning = false;
             return;
         }
     }
 }
 
-void Reactor::handleReadable(Session& s) {
-    std::vector<Frame> frames;
-    const ReadResult r = s.readAvailable(frames);
+/*
+ * 功能描述:  执行 handleReadable 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * return:    void
+ */
+void CReactor::handleReadable(CSession& s) {
+    std::vector<Frame_S> frames;
+    const ReadResult_EN r = s.readAvailable(frames);
 
     if (!frames.empty()) s.touch();
 
-    for (const Frame& f : frames) {
+    for (const Frame_S& f : frames) {
         dispatch(s, f);
-        if (s.state() == SessionState::Closing) return;
+        if (s.state() == SessionState_EN::Closing) return;
     }
 
     switch (r) {
-        case ReadResult::Ok:
+        case ReadResult_EN::Ok:
             break;
-        case ReadResult::PeerClosed:
+        case ReadResult_EN::PeerClosed:
             requestClose(s, "peer closed");
             break;
-        case ReadResult::Error:
+        case ReadResult_EN::Error:
             requestClose(s, std::string("read error: ") + std::strerror(errno));
             break;
-        case ReadResult::ProtocolError:
+        case ReadResult_EN::ProtocolError:
             sendError(s, "protocol_error", s.protocolError());
             requestClose(s, "protocol error: " + s.protocolError());
             break;
     }
 }
 
-void Reactor::handleWritable(Session& s) {
-    if (s.flush() == FlushResult::Error) {
+/*
+ * 功能描述:  执行 handleWritable 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * return:    void
+ */
+void CReactor::handleWritable(CSession& s) {
+    if (s.flush() == FlushResult_EN::Error) {
         requestClose(s, "write failed");
         return;
     }
     updateInterest(s);
 }
 
-void Reactor::handleTimer() {
+/*
+ * 功能描述:  执行 handleTimer 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::handleTimer() {
     const auto now = std::chrono::steady_clock::now();
-    const auto timeout = std::chrono::seconds(ctx_.config().heartbeatTimeoutSec);
+    const auto timeout = std::chrono::seconds(m_stCtx.config().heartbeatTimeoutSec);
 
     std::vector<uint64_t> expired;
-    for (const auto& kv : ctx_.sessions().all()) {
-        Session* s = kv.second.get();
-        if (s->state() == SessionState::Closing) continue;
+    for (const auto& kv : m_stCtx.sessions().all()) {
+        CSession* s = kv.second.get();
+        if (s->state() == SessionState_EN::Closing) continue;
         if (now - s->lastActive() > timeout) expired.push_back(s->id());
     }
     for (uint64_t id : expired) {
-        Session* s = ctx_.sessions().find(id);
+        CSession* s = m_stCtx.sessions().find(id);
         if (s != nullptr) requestClose(*s, "heartbeat timeout");
     }
 
     const uint64_t ms = nowMs();
-    if (ms >= nextStatsAt_) {
-        nextStatsAt_ = ms + 60000;
+    if (ms >= m_uNextStatsAt) {
+        m_uNextStatsAt = ms + 60000;
         size_t loggedIn = 0;
-        for (const auto& kv : ctx_.sessions().all()) {
+        for (const auto& kv : m_stCtx.sessions().all()) {
             if (kv.second->loggedIn()) ++loggedIn;
         }
         LOG_INFO("stats | sessions=%zu loggedIn=%zu rooms=%zu",
-                 ctx_.sessions().size(), loggedIn, ctx_.rooms().size());
+                 m_stCtx.sessions().size(), loggedIn, m_stCtx.rooms().size());
     }
 
-    // 周期性维护（数据归档等）：Reactor 只管每秒调一次，频率由钩子决定
+    /* 周期性维护（数据归档等）：CReactor 只管每秒调一次，频率由钩子决定 */
     if (secondHook_) secondHook_();
 
-    // 回收超过滞留期的空房间（同时释放其历史消息内存）
-    const int ttl = ctx_.config().roomTtlSec;
+    /* 回收超过滞留期的空房间（同时释放其历史消息内存） */
+    const int ttl = m_stCtx.config().roomTtlSec;
     if (ttl > 0) {
         const int64_t deadline = static_cast<int64_t>(ms) - static_cast<int64_t>(ttl) * 1000;
         std::vector<std::string> rooms;
-        for (const auto& kv : ctx_.rooms().all()) {
-            const Room* r = kv.second.get();
+        for (const auto& kv : m_stCtx.rooms().all()) {
+            const CRoom* r = kv.second.get();
             if (!r->isLingering()) continue;
             if (r->emptySince() <= deadline) rooms.push_back(kv.first);
         }
         for (const std::string& id : rooms) {
-            ctx_.rooms().removeIfEmpty(id);
+            m_stCtx.rooms().removeIfEmpty(id);
             LOG_INFO("room '%s' expired after %ds idle", id.c_str(), ttl);
         }
     }
 }
 
-void Reactor::reapSessions() {
-    // 关闭动作可能级联（关闭时广播导致对端写失败），故循环交换批次。
-    while (!pendingClose_.empty()) {
+/*
+ * 功能描述:  执行 reapSessions 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * return:    void
+ */
+void CReactor::reapSessions() {
+    /* 关闭动作可能级联（关闭时广播导致对端写失败），故循环交换批次。 */
+    while (!m_uPendingClose.empty()) {
         std::vector<uint64_t> batch;
-        batch.swap(pendingClose_);
+        batch.swap(m_uPendingClose);
 
         for (uint64_t id : batch) {
-            Session* s = ctx_.sessions().find(id);
+            CSession* s = m_stCtx.sessions().find(id);
             if (s == nullptr) continue;
 
-            // 业务清理（退出房间、通知房友）通过钩子交给 business 层，
-            // Reactor 本身不理解房间语义。
-            if (closeHook_) closeHook_(*s);
+            /* 业务清理（退出房间、通知房友）通过钩子交给 business 层， */
+            /* CReactor 本身不理解房间语义。 */
+            if (m_stCloseHook) m_stCloseHook(*s);
 
             const int fd = s->fd();
             const uint64_t rx = s->rxBytes();
             const uint64_t tx = s->txBytes();
             const std::string peer = s->peer();
 
-            if (epollFd_ >= 0 && fd >= 0) {
-                ::epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, nullptr);
+            if (m_nEpollFd >= 0 && fd >= 0) {
+                ::epoll_ctl(m_nEpollFd, EPOLL_CTL_DEL, fd, nullptr);
             }
-            ctx_.sessions().remove(id);   // 析构中 close(fd)
+            /* 析构中 close(fd) */
+            m_stCtx.sessions().remove(id);
 
             LOG_INFO("session#%llu disconnected from %s (rx=%llu B, tx=%llu B, total=%zu)",
                      static_cast<unsigned long long>(id), peer.c_str(),
                      static_cast<unsigned long long>(rx),
-                     static_cast<unsigned long long>(tx), ctx_.sessions().size());
+                     static_cast<unsigned long long>(tx), m_stCtx.sessions().size());
         }
     }
 }
 
-// ---------------------------------------------------------------- 协议分发
+/* ---------------------------------------------------------------- 协议分发 */
 
-void Reactor::dispatch(Session& s, const Frame& f) {
+/*
+ * 功能描述:  执行 dispatch 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * param [in]  f  参数。
+ * return:    void
+ */
+void CReactor::dispatch(CSession& s, const Frame_S& f) {
     Json j = Json::object();
     if (!f.payload.empty()) {
-        j = Json::parse(f.payload, nullptr, false);   // allow_exceptions = false
+        /* allow_exceptions = false */
+        j = Json::parse(f.payload, nullptr, false);
         if (j.is_discarded()) {
             sendError(s, "bad_json", "payload is not valid JSON");
             return;
@@ -410,16 +492,24 @@ void Reactor::dispatch(Session& s, const Frame& f) {
         }
     }
 
-    // 业务处理全部由注册表转交，Reactor 不含任何 opcode 分支。
-    if (!ServiceRegistry::instance().dispatch(s, f.op, j)) {
+    /* 业务处理全部由注册表转交，CReactor 不含任何 opcode 分支。 */
+    if (!CServiceRegistry::instance().dispatch(s, f.op, j)) {
         sendError(s, "unknown_op",
                   std::string("unsupported opcode: ") + opCodeName(f.op));
     }
 }
 
-// ---------------------------------------------------------------- 出站
+/* ---------------------------------------------------------------- 出站 */
 
-void Reactor::sendTo(Session& s, OpCode op, const Json& j) {
+/*
+ * 功能描述:  执行 sendTo 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * param [in]  op  参数。
+ * param [in]  j  参数。
+ * return:    void
+ */
+void CReactor::sendTo(CSession& s, OpCode_EN op, const Json& j) {
     std::string frame;
     try {
         frame = encodeFrame(op, j);
@@ -429,26 +519,34 @@ void Reactor::sendTo(Session& s, OpCode op, const Json& j) {
     }
 
     s.enqueue(frame);
-    if (s.flush() == FlushResult::Error) {
+    if (s.flush() == FlushResult_EN::Error) {
         requestClose(s, "write failed");
         return;
     }
     updateInterest(s);
 }
 
-void Reactor::sendError(Session& s, const std::string& code, const std::string& text) {
+/*
+ * 功能描述:  执行 sendError 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * param [in]  code  参数。
+ * param [in]  text  参数。
+ * return:    void
+ */
+void CReactor::sendError(CSession& s, const std::string& code, const std::string& text) {
     Json j = Json::object();
     j["code"] = code;
     j["text"] = text;
-    sendTo(s, OpCode::ErrorMsg, j);
+    sendTo(s, OpCode_EN::ErrorMsg, j);
 }
 
-void Reactor::broadcastRoom(const std::string& roomId, OpCode op, const Json& j,
+void CReactor::broadcastRoom(const std::string& roomId, OpCode_EN op, const Json& j,
                             uint64_t exceptId) {
-    Room* room = ctx_.rooms().find(roomId);
+    CRoom* room = m_stCtx.rooms().find(roomId);
     if (room == nullptr) return;
 
-    // 帧只编码一次，房间越大收益越明显。
+    /* 帧只编码一次，房间越大收益越明显。 */
     std::string frame;
     try {
         frame = encodeFrame(op, j);
@@ -457,9 +555,9 @@ void Reactor::broadcastRoom(const std::string& roomId, OpCode op, const Json& j,
         return;
     }
 
-    room->broadcast([this, &frame](Session& target) {
+    room->broadcast([this, &frame](CSession& target) {
         target.enqueue(frame);
-        if (target.flush() == FlushResult::Error) {
+        if (target.flush() == FlushResult_EN::Error) {
             requestClose(target, "write failed");
             return;
         }
@@ -467,7 +565,13 @@ void Reactor::broadcastRoom(const std::string& roomId, OpCode op, const Json& j,
     }, exceptId);
 }
 
-void Reactor::updateInterest(Session& s) {
+/*
+ * 功能描述:  执行 updateInterest 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * return:    void
+ */
+void CReactor::updateInterest(CSession& s) {
     const bool want = s.hasPendingOutput();
     if (want == s.outInterest()) return;
 
@@ -476,7 +580,7 @@ void Reactor::updateInterest(Session& s) {
     if (want) ev.events |= EPOLLOUT;
     ev.data.u64 = s.id();
 
-    if (::epoll_ctl(epollFd_, EPOLL_CTL_MOD, s.fd(), &ev) < 0) {
+    if (::epoll_ctl(m_nEpollFd, EPOLL_CTL_MOD, s.fd(), &ev) < 0) {
         LOG_WARN("epoll_ctl MOD fd=%d failed: %s", s.fd(), std::strerror(errno));
         requestClose(s, "epoll_ctl MOD failed");
         return;
@@ -484,12 +588,20 @@ void Reactor::updateInterest(Session& s) {
     s.setOutInterest(want);
 }
 
-void Reactor::requestClose(Session& s, const std::string& reason) {
-    if (s.state() == SessionState::Closing) return;
-    s.setState(SessionState::Closing);
-    pendingClose_.push_back(s.id());
+/*
+ * 功能描述:  执行 requestClose 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 作者:      JaTin
+ * param [out]  s  参数。
+ * param [in]  reason  参数。
+ * return:    void
+ */
+void CReactor::requestClose(CSession& s, const std::string& reason) {
+    if (s.state() == SessionState_EN::Closing) return;
+    s.setState(SessionState_EN::Closing);
+    m_uPendingClose.push_back(s.id());
     LOG_INFO("session#%llu -> closing (%s)",
              static_cast<unsigned long long>(s.id()), reason.c_str());
 }
 
-}  // namespace dp
+/* namespace dp */
+}

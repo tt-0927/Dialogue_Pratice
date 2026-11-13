@@ -1,8 +1,9 @@
-/**
- * @file  UserRepository.h
- * @brief 用户表的读写。
- * @details 用户数据与聊天数据分库存放：本类只碰 `users.db`。
- *          密码以「随机盐 + SHA-256」存储，不保存明文。
+/*
+ * 文件名:    UserRepository.h
+ * 创建日期:  2026-11-13
+ * 作者:      JaTin
+ * 功能描述:  用户表的读写。
+ * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
  */
 
 #pragma once
@@ -18,13 +19,19 @@ namespace dp {
 /**
  * @brief 一条用户记录（不含密码字段）。
  */
-struct UserRecord {
-    int64_t     id = 0;         ///< 持久用户 id
-    std::string username;       ///< 登录名，唯一
-    std::string nickname;       ///< 显示昵称
-    int         age = 0;        ///< 年龄，0 表示未填写
-    std::string description;    ///< 个人简介
-    bool        enabled = true; ///< 是否允许登录
+struct UserRecord_S {
+    /* < 持久用户 id */
+    int64_t     id = 0;
+    /* < 登录名，唯一 */
+    std::string username;
+    /* < 显示昵称 */
+    std::string nickname;
+    /* < 年龄，0 表示未填写 */
+    int         age = 0;
+    /* < 个人简介 */
+    std::string description;
+    /* < 是否允许登录 */
+    bool        enabled = true;
 };
 
 /**
@@ -33,11 +40,11 @@ struct UserRecord {
  * @details 建表语句在 `ensureSchema()` 里，可重复调用。
  *          所有查询都用参数绑定，不做字符串拼接，避免注入。
  */
-class UserRepository {
+class CUserRepository {
 public:
-    UserRepository() = default;
-    UserRepository(const UserRepository&) = delete;
-    UserRepository& operator=(const UserRepository&) = delete;
+    CUserRepository() = default;
+    CUserRepository(const CUserRepository&) = delete;
+    CUserRepository& operator=(const CUserRepository&) = delete;
 
     /**
      * @brief 打开用户数据库。
@@ -54,7 +61,7 @@ public:
      */
     bool ensureSchema(std::string* error);
 
-    /// @brief 是否已打开。
+    /* 是否已打开。 */
     bool isOpen() const { return db_.isOpen(); }
 
     /**
@@ -62,14 +69,14 @@ public:
      * @param nickname 昵称。
      * @retval 找到时返回记录；未找到或重名时返回空。
      */
-    std::optional<UserRecord> findByNickname(const std::string& nickname);
+    std::optional<UserRecord_S> findByNickname(const std::string& nickname);
 
     /**
      * @brief 按登录名查找。
      * @param username 登录名。
      * @retval 找到时返回记录。
      */
-    std::optional<UserRecord> findByUsername(const std::string& username);
+    std::optional<UserRecord_S> findByUsername(const std::string& username);
 
     /**
      * @brief 校验账号密码。
@@ -80,7 +87,7 @@ public:
      * @retval false 任一条件不满足。
      */
     bool verifyCredentials(const std::string& username, const std::string& password,
-                           UserRecord* out);
+                           UserRecord_S* out);
 
     /**
      * @brief 创建用户。
@@ -103,7 +110,7 @@ public:
      */
     bool touchLogin(int64_t userId);
 
-    /// @brief 用户总数。
+    /* 用户总数。 */
     size_t count();
 
 private:
@@ -113,9 +120,11 @@ private:
      * @param out  输出记录。
      * @retval true 读取成功。
      */
-    static bool readRow(Statement& stmt, UserRecord* out);
+    static bool readRow(CStatement& stmt, UserRecord_S* out);
 
-    Database db_;   ///< users.db 连接
+    /* < users.db 连接 */
+    CDatabase db_;
 };
 
-}  // namespace dp
+/* namespace dp */
+}
