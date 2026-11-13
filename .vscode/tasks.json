@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cmake: build (Release)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build.sh",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "cmake: rebuild clean",
+            "type": "shell",
+            "command": "rm -rf ${workspaceFolder}/build && ${workspaceFolder}/scripts/build.sh",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "run: server",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/run.sh",
+            "dependsOn": ["cmake: build (Release)"],
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always"
+            }
+        }
+    ]
+}

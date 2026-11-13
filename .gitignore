@@ -1,0 +1,11 @@
+# 构建产物
+build/
+apk/
+# 运行时数据与日志
+logs/
+data/
+*.db
+*.db-shm
+*.db-wal
+# 含密钥的实际配置（保留 *.example.json）
+config/llm.json

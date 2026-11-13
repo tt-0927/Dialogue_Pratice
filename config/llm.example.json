@@ -1,0 +1,17 @@
+{
+  "_说明": "服务端统一下发的 LLM 配置：客户端登录时自动获取，不需要每台机器各自维护 llm.json。改完需重启服务端。",
+  "llm": {
+    "enabled": true,
+    "baseUrl": "https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions",
+    "apiKey": "ak-xxxxxxxxxxxx",
+    "model": "spark-x2.6",
+    "temperature": 0.2,
+    "reasoningEffort": "none",
+    "timeoutMs": 40000
+  },
+  "translation": {
+    "maxHistoryMessages": 12,
+    "cacheSize": 500,
+    "llm": {}
+  }
+}
