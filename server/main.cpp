@@ -1,12 +1,14 @@
-/*
- * 文件名:    main.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  main 实现文件，包含相关接口的具体实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       main.cpp
+ * @brief      main 实现文件，包含相关接口的具体实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* server/main.cpp */
+/**
+ * @brief  server/main.cpp。
+ */
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -17,11 +19,11 @@
 
 namespace {
 
-/*
- * 功能描述:  打印命令行参数用法说明。
- * 作者:      JaTin
- * param [in]   strProg          输入数据，类型 const char*。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      打印命令行参数用法说明。
+ * @param[in] strProg        输入数据；类型 const char*。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void usage(const char* strProg) {
     std::printf(
@@ -42,14 +44,14 @@ void usage(const char* strProg) {
         strProg);
 }
 
-/*
- * 功能描述:  从命令行参数中取出指定选项的值。
- * 作者:      JaTin
- * param [in]   nArgc            输入数据，类型 int。
- * param [in]   strArgv          输入数据，类型 char**。
- * param [out]  nI               输入数据，类型 int&。
- * param [in]   strName          名称或昵称，类型 const char*。
- * return:    成功返回对象指针；未找到或失败时返回 nullptr。
+/**
+ * @brief      从命令行参数中取出指定选项的值。
+ * @param[in] nArgc          输入数据；类型 int。
+ * @param[in] strArgv        输入数据；类型 char**。
+ * @param[out] nI             输入数据；类型 int&。
+ * @param[in] strName        名称或昵称；类型 const char*。
+ * @return     成功返回对象指针；未找到或失败时返回 nullptr。
+ * @author     JaTin
  */
 const char* takeValue(int nArgc, char** strArgv, int& nI, const char* strName) {
     if (nI + 1 >= nArgc) {
@@ -59,15 +61,17 @@ const char* takeValue(int nArgc, char** strArgv, int& nI, const char* strName) {
     return strArgv[++nI];
 }
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  程序入口：解析命令行参数、初始化服务端并运行事件循环。
- * 作者:      JaTin
- * param [in]   nArgc            输入数据，类型 int。
- * param [in]   strArgv          输入数据，类型 char**。
- * return:    返回处理结果码；0 表示成功，负值或 -1 表示失败。
+/**
+ * @brief      程序入口：解析命令行参数、初始化服务端并运行事件循环。
+ * @param[in] nArgc          输入数据；类型 int。
+ * @param[in] strArgv        输入数据；类型 char**。
+ * @return     返回处理结果码；0 表示成功，负值或 -1 表示失败。
+ * @author     JaTin
  */
 int main(int nArgc, char** strArgv) {
     dp::CServer::Config stCfg;

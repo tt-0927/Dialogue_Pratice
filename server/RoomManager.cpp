@@ -1,21 +1,23 @@
-/*
- * 文件名:    RoomManager.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  CRoomManager 实现文件，包含相关接口的具体实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       RoomManager.cpp
+ * @brief      CRoomManager 实现文件，包含相关接口的具体实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* server/CRoomManager.cpp */
+/**
+ * @brief  server/CRoomManager.cpp。
+ */
 #include "server/RoomManager.h"
 
 namespace dp {
 
-/*
- * 功能描述:  获取orcreate。
- * 作者:      JaTin
- * param [in]   strId            编号，类型 const std::string&。
- * return:    返回 CRoom& 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      获取 orcreate相关的数据并返回处理结果。
+ * @param[in] strId          编号；类型 const std::string&。
+ * @return     返回 CRoom& CRoomManager:: 类型的对象引用或指针，调用方按接口约定使用。
+ * @author     JaTin
  */
 CRoom& CRoomManager::getOrCreate(const std::string& strId) {
     auto stIt = rooms_.find(strId);
@@ -27,22 +29,22 @@ CRoom& CRoomManager::getOrCreate(const std::string& strId) {
     return *pRaw;
 }
 
-/*
- * 功能描述:  查找find。
- * 作者:      JaTin
- * param [in]   strId            编号，类型 const std::string&。
- * return:    成功返回对象指针；未找到或失败时返回 nullptr。
+/**
+ * @brief      查找 find。
+ * @param[in] strId          编号；类型 const std::string&。
+ * @return     成功返回对象指针；未找到或失败时返回 nullptr。
+ * @author     JaTin
  */
 CRoom* CRoomManager::find(const std::string& strId) {
     auto stIt = rooms_.find(strId);
     return stIt == rooms_.end() ? nullptr : stIt->second.get();
 }
 
-/*
- * 功能描述:  移除ifempty；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strId            编号，类型 const std::string&。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      移除 ifempty；失败时返回 false。
+ * @param[in] strId          编号；类型 const std::string&。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CRoomManager::removeIfEmpty(const std::string& strId) {
     auto stIt = rooms_.find(strId);
@@ -52,5 +54,7 @@ bool CRoomManager::removeIfEmpty(const std::string& strId) {
     return true;
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

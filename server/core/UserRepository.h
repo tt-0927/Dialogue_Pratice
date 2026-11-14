@@ -1,9 +1,9 @@
-/*
- * 文件名:    UserRepository.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  用户表的读写。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       UserRepository.h
+ * @brief      用户表的读写。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #pragma once
@@ -17,28 +17,46 @@
 namespace dp {
 
 /**
- * @brief 一条用户记录（不含密码字段）。
+ * @brief   一条用户记录（不含密码字段）。
+ * @author  JaTin
  */
 struct UserRecord_S {
-    /* < 持久用户 id */
+    /**
+     * @brief  持久用户 id
+     * @note   类型 int64_t；类/结构体成员变量。
+     */
     int64_t     id = 0;
-    /* < 登录名，唯一 */
+    /**
+     * @brief  登录名，唯一
+     * @note   类型 std::string；类/结构体成员变量。
+     */
     std::string username;
-    /* < 显示昵称 */
+    /**
+     * @brief  显示昵称
+     * @note   类型 std::string；类/结构体成员变量。
+     */
     std::string nickname;
-    /* < 年龄，0 表示未填写 */
+    /**
+     * @brief  年龄，0 表示未填写
+     * @note   类型 int；类/结构体成员变量。
+     */
     int         age = 0;
-    /* < 个人简介 */
+    /**
+     * @brief  个人简介
+     * @note   类型 std::string；类/结构体成员变量。
+     */
     std::string description;
-    /* < 是否允许登录 */
+    /**
+     * @brief  是否允许登录
+     * @note   类型 bool；类/结构体成员变量。
+     */
     bool        enabled = true;
 };
 
 /**
- * @brief 用户表的访问对象。
- *
- * @details 建表语句在 `ensureSchema()` 里，可重复调用。
- *          所有查询都用参数绑定，不做字符串拼接，避免注入。
+ * @brief   用户表的访问对象。
+ * @details 建表语句在 `ensureSchema()` 里，可重复调用。 所有查询都用参数绑定，不做字符串拼接，避免注入。
+ * @author  JaTin
  */
 class CUserRepository {
 public:
@@ -47,34 +65,40 @@ public:
     CUserRepository& operator=(const CUserRepository&) = delete;
 
     /**
-     * @brief 打开用户数据库。
-     * @param path  文件路径（不存在则创建）。
-     * @param error 失败原因。
-     * @retval true 打开成功。
+     * @brief      打开用户数据库。
+     * @param[in] path           文件路径（不存在则创建）；类型 const std::string&。
+     * @param[in] error          失败原因；类型 std::string*。
+     * @return     true 打开成功。
+     * @author     JaTin
      */
     bool open(const std::string& path, std::string* error);
 
     /**
-     * @brief 建表与索引（幂等）。
-     * @param error 失败原因。
-     * @retval true 表结构已就绪。
+     * @brief      建表与索引（幂等）。
+     * @param[in] error          失败原因；类型 std::string*。
+     * @return     true 表结构已就绪。
+     * @author     JaTin
      */
     bool ensureSchema(std::string* error);
 
-    /* 是否已打开。 */
+    /**
+     * @brief  是否已打开。
+     */
     bool isOpen() const { return db_.isOpen(); }
 
     /**
-     * @brief 按昵称查找（供「只发昵称」的老客户端兼容使用）。
-     * @param nickname 昵称。
-     * @retval 找到时返回记录；未找到或重名时返回空。
+     * @brief      按昵称查找（供「只发昵称」的老客户端兼容使用）。
+     * @param[in] nickname       昵称；类型 const std::string&。
+     * @return     找到时返回记录；未找到或重名时返回空。
+     * @author     JaTin
      */
     std::optional<UserRecord_S> findByNickname(const std::string& nickname);
 
     /**
-     * @brief 按登录名查找。
-     * @param username 登录名。
-     * @retval 找到时返回记录。
+     * @brief      按登录名查找。
+     * @param[in] username       登录名；类型 const std::string&。
+     * @return     找到时返回记录。
+     * @author     JaTin
      */
     std::optional<UserRecord_S> findByUsername(const std::string& username);
 
@@ -104,27 +128,39 @@ public:
                     std::string* error);
 
     /**
-     * @brief 记录一次登录时间。
-     * @param userId 用户 id。
-     * @retval true 更新成功。
+     * @brief      记录一次登录时间。
+     * @param[in] userId         用户 id；类型 int64_t。
+     * @return     true 更新成功。
+     * @author     JaTin
      */
     bool touchLogin(int64_t userId);
 
-    /* 用户总数。 */
+    /**
+     * @brief      用户总数。
+     * @note       本函数无输入参数。
+     * @return     返回计数或长度；无有效数据时返回 0。
+     * @author     JaTin
+     */
     size_t count();
 
 private:
     /**
-     * @brief 从当前结果行读出一条用户记录。
-     * @param stmt 已 step 到目标行的语句。
-     * @param out  输出记录。
-     * @retval true 读取成功。
+     * @brief      从当前结果行读出一条用户记录。
+     * @param[out] stmt           已 step 到目标行的语句；类型 CStatement&。
+     * @param[in] out            输出记录；类型 UserRecord_S*。
+     * @return     true 读取成功。
+     * @author     JaTin
      */
     static bool readRow(CStatement& stmt, UserRecord_S* out);
 
-    /* < users.db 连接 */
+    /**
+     * @brief  users.db 连接
+     * @note   类型 CDatabase；类/结构体成员变量。
+     */
     CDatabase db_;
 };
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

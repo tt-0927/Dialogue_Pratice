@@ -1,12 +1,14 @@
-/*
- * 文件名:    Logger.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  CLogger 实现文件，包含相关接口的具体实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Logger.cpp
+ * @brief      CLogger 实现文件，包含相关接口的具体实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* server/CLogger.cpp */
+/**
+ * @brief  server/CLogger.cpp。
+ */
 #include "server/core/Logger.h"
 
 #include <chrono>
@@ -25,25 +27,28 @@ std::mutex g_mu;
 bool g_color = false;
 bool g_colorInit = false;
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  获取instance。
- * 作者:      JaTin
- * return:    返回 CLogger& 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      获取本类的进程内单例对象。
+ * @note       本函数无输入参数。
+ * @return     返回 CLogger& CLogger:: 类型的对象引用或指针，调用方按接口约定使用。
+ * @author     JaTin
  */
 CLogger& CLogger::instance() {
     static CLogger stInst;
     return stInst;
 }
 
-/*
- * 功能描述:  把日志级别字符串解析为日志级别枚举值。
- * 作者:      JaTin
- * param [in]   strS             目标会话对象，类型 const char*。
- * param [out]  enOut            输入数据，类型 LogLevel_EN&。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      把日志级别字符串解析为日志级别枚举值。
+ * @param[in] strS           目标会话对象；类型 const char*。
+ * @param[out] enOut          输入数据；类型 LogLevel_EN&。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CLogger::parseLevel(const char* strS, LogLevel_EN& enOut) {
     if (strS == nullptr) return false;
@@ -54,12 +59,12 @@ bool CLogger::parseLevel(const char* strS, LogLevel_EN& enOut) {
     return false;
 }
 
-/*
- * 功能描述:  按日志级别格式化并输出一条日志。
- * 作者:      JaTin
- * param [in]   enLv             输入数据，类型 LogLevel_EN。
- * param [in]   strFmt           格式化字符串，类型 const char*。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      按日志级别格式化并输出一条日志。
+ * @param[in] enLv           输入数据；类型 LogLevel_EN。
+ * @param[in] strFmt         格式化字符串；类型 const char*。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CLogger::write(LogLevel_EN enLv, const char* strFmt, ...) {
     if (enLv < m_stLevel) return;
@@ -102,5 +107,7 @@ void CLogger::write(LogLevel_EN enLv, const char* strFmt, ...) {
     std::fflush(stdout);
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

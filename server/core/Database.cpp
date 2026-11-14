@@ -1,9 +1,9 @@
-/*
- * 文件名:    Database.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  SQLite 封装的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Database.cpp
+ * @brief      SQLite 封装的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/core/Database.h"
@@ -12,23 +12,20 @@
 
 namespace dp {
 
-/* ---------------------------------------------------------------- CDatabase */
-
-/*
- * 功能描述:  析构 CDatabase 对象，释放运行期持有的全部资源。
- * 作者:      JaTin
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief  ---------------------------------------------------------------- CDatabase。
+ * @details 析构 CDatabase 对象，释放运行期持有的全部资源。
  */
 CDatabase::~CDatabase() {
     close();
 }
 
-/*
- * 功能描述:  获取open；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strPath          文件路径，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      获取 open；失败时返回 false。
+ * @param[in] strPath        文件路径；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CDatabase::open(const std::string& strPath, std::string* pError) {
     close();
@@ -45,7 +42,9 @@ bool CDatabase::open(const std::string& strPath, std::string* pError) {
         return false;
     }
 
-    /* WAL：写入不阻塞读；busy_timeout 防止偶发的多进程访问直接失败。 */
+    /**
+     * @brief  WAL：写入不阻塞读；busy_timeout 防止偶发的多进程访问直接失败。
+     */
     std::string strPragmaError;
     if (!exec("PRAGMA journal_mode=WAL;", &strPragmaError)
         || !exec("PRAGMA synchronous=NORMAL;", &strPragmaError)
@@ -58,10 +57,11 @@ bool CDatabase::open(const std::string& strPath, std::string* pError) {
     return true;
 }
 
-/*
- * 功能描述:  关闭close。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      关闭 close。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CDatabase::close() {
     if (db_ == nullptr) return;
@@ -69,12 +69,12 @@ void CDatabase::close() {
     db_ = nullptr;
 }
 
-/*
- * 功能描述:  执行exec；实现上通过 SQLite 完成持久化读写；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strSql           输入数据，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      执行 exec；实现上通过 SQLite 完成持久化读写；失败时返回 false。
+ * @param[in] strSql         输入数据；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CDatabase::exec(const std::string& strSql, std::string* pError) {
     if (db_ == nullptr) {
@@ -95,24 +95,20 @@ bool CDatabase::exec(const std::string& strSql, std::string* pError) {
     return true;
 }
 
-/*
- * 功能描述:  获取last 错误。
- * 作者:      JaTin
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      获取 last 错误。
+ * @note       本函数无输入参数。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string CDatabase::lastError() const {
     if (db_ == nullptr) return "database not open";
     return sqlite3_errmsg(db_);
 }
 
-/* ---------------------------------------------------------------- CStatement */
-
-/*
- * 功能描述:  构造 CStatement 对象，完成成员初始化与依赖注入。
- * 作者:      JaTin
- * param [out]  stDb             数据库，类型 CDatabase&。
- * param [in]   strSql           输入数据，类型 const std::string&。
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief  ---------------------------------------------------------------- CStatement。
+ * @details 构造 CStatement 对象，完成成员初始化与依赖注入。
  */
 CStatement::CStatement(CDatabase& stDb, const std::string& strSql) {
     if (stDb.handle() == nullptr) {
@@ -128,47 +124,50 @@ CStatement::CStatement(CDatabase& stDb, const std::string& strSql) {
     }
 }
 
-/*
- * 功能描述:  析构 CStatement 对象，释放运行期持有的全部资源。
- * 作者:      JaTin
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      析构 CStatement 对象，释放运行期持有的全部资源。
+ * @note       本函数无输入参数。
+ * @return     无返回值（构造函数或析构函数）。
+ * @author     JaTin
  */
 CStatement::~CStatement() {
     if (m_pStmt != nullptr) sqlite3_finalize(m_pStmt);
 }
 
-/*
- * 功能描述:  绑定文本。
- * 作者:      JaTin
- * param [in]   nIndex           位置索引，类型 int。
- * param [in]   strValue         待设置的数值，类型 const std::string&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      绑定文本。
+ * @param[in] nIndex         位置索引；类型 int。
+ * @param[in] strValue       待设置的数值；类型 const std::string&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CStatement::bindText(int nIndex, const std::string& strValue) {
     if (m_pStmt == nullptr) return;
-    /* SQLITE_TRANSIENT：让 sqlite 自己拷贝，调用方不必保证生命周期 */
+    /**
+     * @brief  SQLITE_TRANSIENT：让 sqlite 自己拷贝，调用方不必保证生命周期。
+     */
     sqlite3_bind_text(m_pStmt, nIndex, strValue.c_str(), static_cast<int>(strValue.size()),
                       SQLITE_TRANSIENT);
 }
 
-/*
- * 功能描述:  绑定int64。
- * 作者:      JaTin
- * param [in]   nIndex           位置索引，类型 int。
- * param [in]   strValue         待设置的数值，类型 int64_t。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      绑定 int64。
+ * @param[in] nIndex         位置索引；类型 int。
+ * @param[in] strValue       待设置的数值；类型 int64_t。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CStatement::bindInt64(int nIndex, int64_t strValue) {
     if (m_pStmt == nullptr) return;
     sqlite3_bind_int64(m_pStmt, nIndex, strValue);
 }
 
-/*
- * 功能描述:  绑定blob。
- * 作者:      JaTin
- * param [in]   nIndex           位置索引，类型 int。
- * param [in]   strValue         待设置的数值，类型 const std::string&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      绑定 blob。
+ * @param[in] nIndex         位置索引；类型 int。
+ * @param[in] strValue       待设置的数值；类型 const std::string&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CStatement::bindBlob(int nIndex, const std::string& strValue) {
     if (m_pStmt == nullptr) return;
@@ -180,10 +179,11 @@ void CStatement::bindBlob(int nIndex, const std::string& strValue) {
                       SQLITE_TRANSIENT);
 }
 
-/*
- * 功能描述:  获取step；实现上通过 SQLite 完成持久化读写；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      获取 step；实现上通过 SQLite 完成持久化读写；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CStatement::step() {
     if (m_pStmt == nullptr) {
@@ -200,22 +200,22 @@ bool CStatement::step() {
     return false;
 }
 
-/*
- * 功能描述:  获取columnint64。
- * 作者:      JaTin
- * param [in]   nColumn          输入数据，类型 int。
- * return:    返回计数或长度；无有效数据时返回 0。
+/**
+ * @brief      获取 columnint64相关的数据并返回处理结果。
+ * @param[in] nColumn        输入数据；类型 int。
+ * @return     返回计数或长度；无有效数据时返回 0。
+ * @author     JaTin
  */
 int64_t CStatement::columnInt64(int nColumn) const {
     if (m_pStmt == nullptr) return 0;
     return sqlite3_column_int64(m_pStmt, nColumn);
 }
 
-/*
- * 功能描述:  获取column 文本。
- * 作者:      JaTin
- * param [in]   nColumn          输入数据，类型 int。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      获取 column 文本。
+ * @param[in] nColumn        输入数据；类型 int。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string CStatement::columnText(int nColumn) const {
     if (m_pStmt == nullptr) return std::string();
@@ -225,11 +225,11 @@ std::string CStatement::columnText(int nColumn) const {
     return std::string(reinterpret_cast<const char*>(text), static_cast<size_t>(nBytes));
 }
 
-/*
- * 功能描述:  获取columnblob。
- * 作者:      JaTin
- * param [in]   nColumn          输入数据，类型 int。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      获取 columnblob相关的数据并返回处理结果。
+ * @param[in] nColumn        输入数据；类型 int。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string CStatement::columnBlob(int nColumn) const {
     if (m_pStmt == nullptr) return std::string();
@@ -239,21 +239,22 @@ std::string CStatement::columnBlob(int nColumn) const {
     return std::string(static_cast<const char*>(vData), static_cast<size_t>(nBytes));
 }
 
-/*
- * 功能描述:  判断columnnull。
- * 作者:      JaTin
- * param [in]   nColumn          输入数据，类型 int。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      判断 columnnull相关的数据并返回处理结果。
+ * @param[in] nColumn        输入数据；类型 int。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CStatement::columnIsNull(int nColumn) const {
     if (m_pStmt == nullptr) return true;
     return sqlite3_column_type(m_pStmt, nColumn) == SQLITE_NULL;
 }
 
-/*
- * 功能描述:  重置reset。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      重置 reset。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CStatement::reset() {
     if (m_pStmt == nullptr) return;
@@ -262,5 +263,7 @@ void CStatement::reset() {
     m_strError.clear();
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

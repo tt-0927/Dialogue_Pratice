@@ -1,9 +1,9 @@
-/*
- * 文件名:    TimeUtil.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  跨模块复用的时间工具（header-only）。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       TimeUtil.h
+ * @brief      跨模块复用的时间工具（header-only）。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #pragma once
@@ -14,8 +14,10 @@
 namespace dp {
 
 /**
- * @brief 当前 Unix 时间戳（毫秒）。
- * @retval 自 1970-01-01 起经过的毫秒数，用于消息时间与历史淘汰判断。
+ * @brief      当前 Unix 时间戳（毫秒）。
+ * @note       本函数无输入参数。
+ * @return     自 1970-01-01 起经过的毫秒数，用于消息时间与历史淘汰判断。
+ * @author     JaTin
  */
 inline uint64_t nowMs() {
     return static_cast<uint64_t>(
@@ -24,5 +26,7 @@ inline uint64_t nowMs() {
             .count());
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

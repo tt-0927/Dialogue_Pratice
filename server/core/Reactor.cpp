@@ -1,9 +1,9 @@
-/*
- * 文件名:    Reactor.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  CReactor 的实现：epoll 事件循环、连接生命周期与出站写缓冲管理。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Reactor.cpp
+ * @brief      CReactor 的实现：epoll 事件循环、连接生命周期与出站写缓冲管理。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/core/Reactor.h"
@@ -31,35 +31,38 @@
 namespace dp {
 namespace {
 
-/* < 单次 epoll_wait 最多取出的就绪事件数 */
+/**
+ * @brief  单次 epoll_wait 最多取出的就绪事件数
+ * @note   取值 256。
+ */
 constexpr int kMaxEvents = 256;
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  构造 CReactor 对象，完成成员初始化与依赖注入。
- * 作者:      JaTin
- * param [out]  stCtx            服务端共享上下文引用，必须比本对象存活更久，类型 CServerContext& ctx) : m_stCtx(。
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      构造 CReactor 对象，完成成员初始化与依赖注入。
+ * @param[out] stCtx          服务端共享上下文引用，必须比本对象存活更久；类型 CServerContext& stCtx) : m_stCtx(。
+ * @return     构造/析构函数无返回值。
+ * @author     JaTin
  */
 CReactor::CReactor(CServerContext& stCtx) : m_stCtx(stCtx) {}
 
-/*
- * 功能描述:  析构 CReactor 对象，释放运行期持有的全部资源。
- * 作者:      JaTin
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      析构 CReactor 对象，释放运行期持有的全部资源。
+ * @note       本函数无输入参数。
+ * @return     无返回值（构造函数或析构函数）。
+ * @author     JaTin
  */
 CReactor::~CReactor() {
     shutdownAll();
 }
 
-/* ---------------------------------------------------------------- 启动 / 关闭 */
-
-/*
- * 功能描述:  建立并配置信号文件描述符；实现上基于 epoll 边沿触发等待就绪事件、屏蔽进程信号并交由事件循环统一处理；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief  ---------------------------------------------------------------- 启动 / 关闭。
+ * @details 建立并配置信号文件描述符；实现上基于 epoll 边沿触发等待就绪事件、屏蔽进程信号并交由事件循环统一处理；失败时返回 false。
  */
 bool CReactor::setupSignalFd() {
     sigset_t stMask;
@@ -68,7 +71,9 @@ bool CReactor::setupSignalFd() {
     sigaddset(&stMask, SIGTERM);
     sigaddset(&stMask, SIGPIPE);
 
-    /* 先屏蔽，再用 signalfd 统一从事件循环里取信号，避免异步打断 epoll_wait。 */
+    /**
+     * @brief  先屏蔽，再用 signalfd 统一从事件循环里取信号，避免异步打断 epoll_wait。
+     */
     if (::sigprocmask(SIG_BLOCK, &stMask, nullptr) < 0) {
         LOG_ERROR("sigprocmask: %s", std::strerror(errno));
         return false;
@@ -81,10 +86,11 @@ bool CReactor::setupSignalFd() {
     return true;
 }
 
-/*
- * 功能描述:  建立并配置listen 套接字；实现上异常路径记录错误或警告日志；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      建立并配置 listen 套接字；实现上异常路径记录错误或警告日志；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CReactor::setupListenSocket() {
     const ServerConfig_S& stCfg = m_stCtx.config();
@@ -121,10 +127,11 @@ bool CReactor::setupListenSocket() {
     return true;
 }
 
-/*
- * 功能描述:  建立并配置epoll；实现上向 epoll 实例注册或注销描述符、屏蔽进程信号并交由事件循环统一处理；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      建立并配置 epoll；实现上向 epoll 实例注册或注销描述符、屏蔽进程信号并交由事件循环统一处理；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CReactor::setupEpoll() {
     m_nEpollFd = ::epoll_create1(EPOLL_CLOEXEC);
@@ -133,7 +140,9 @@ bool CReactor::setupEpoll() {
         return false;
     }
 
-    /* 监听 fd 同样用边沿触发：accept 必须循环到 EAGAIN，否则会漏掉新连接。 */
+    /**
+     * @brief  监听 fd 同样用边沿触发：accept 必须循环到 EAGAIN，否则会漏掉新连接。
+     */
     epoll_event stEv{};
     stEv.events = EPOLLIN | EPOLLET;
     stEv.data.u64 = kListenId;
@@ -152,10 +161,11 @@ bool CReactor::setupEpoll() {
     return true;
 }
 
-/*
- * 功能描述:  启动start；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      启动 start；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CReactor::start() {
     if (!setupSignalFd()) return false;
@@ -172,10 +182,11 @@ bool CReactor::start() {
     return true;
 }
 
-/*
- * 功能描述:  关闭并释放all；实现上向 epoll 实例注册或注销描述符。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      关闭并释放 all；实现上向 epoll 实例注册或注销描述符。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::shutdownAll() {
     CSessionManager& stSessions = m_stCtx.sessions();
@@ -189,7 +200,9 @@ void CReactor::shutdownAll() {
             ::epoll_ctl(m_nEpollFd, EPOLL_CTL_DEL, stS->fd(), nullptr);
         }
     }
-    /* CSessionManager 无 clear()，逐个删除以触发 fd 关闭。 */
+    /**
+     * @brief  CSessionManager 无 clear()，逐个删除以触发 fd 关闭。
+     */
     while (!stSessions.all().empty()) {
         stSessions.remove(stSessions.all().begin()->first);
     }
@@ -199,12 +212,9 @@ void CReactor::shutdownAll() {
     if (m_nEpollFd >= 0)  { ::close(m_nEpollFd);  m_nEpollFd = -1; }
 }
 
-/* ---------------------------------------------------------------- 事件循环 */
-
-/*
- * 功能描述:  运行run；实现上基于 epoll 边沿触发等待就绪事件、异常路径记录错误或警告日志。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief  ---------------------------------------------------------------- 事件循环。
+ * @details 运行 run；实现上基于 epoll 边沿触发等待就绪事件、异常路径记录错误或警告日志。
  */
 void CReactor::run() {
     m_nRunning = true;
@@ -250,7 +260,9 @@ void CReactor::run() {
             }
         }
 
-        /* 统一回收：保证任何 handler 都不会在遍历过程中销毁 CSession。 */
+        /**
+         * @brief  统一回收：保证任何 handler 都不会在遍历过程中销毁 CSession。
+         */
         reapSessions();
 
         const auto stNow = std::chrono::steady_clock::now();
@@ -264,10 +276,11 @@ void CReactor::run() {
     LOG_INFO("event loop stopped");
 }
 
-/*
- * 功能描述:  处理accept；实现上向 epoll 实例注册或注销描述符、异常路径记录错误或警告日志。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      处理 accept；实现上向 epoll 实例注册或注销描述符、异常路径记录错误或警告日志。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::handleAccept() {
     CSessionManager& stSessions = m_stCtx.sessions();
@@ -279,7 +292,9 @@ void CReactor::handleAccept() {
         const int hFd = ::accept4(m_nListenFd, reinterpret_cast<sockaddr*>(&stAddr), &stAddrLen,
                                  SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (hFd < 0) {
-            /* ET：已取完 */
+            /**
+             * @brief  ET：已取完。
+             */
             if (errno == EAGAIN || errno == EWOULDBLOCK) return;
             if (errno == EINTR) continue;
             if (errno == EMFILE || errno == ENFILE) {
@@ -320,10 +335,11 @@ void CReactor::handleAccept() {
     }
 }
 
-/*
- * 功能描述:  处理信号。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      处理信号。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::handleSignal() {
     signalfd_siginfo stSi{};
@@ -338,11 +354,11 @@ void CReactor::handleSignal() {
     }
 }
 
-/*
- * 功能描述:  处理readable。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      处理 readable相关的数据并返回处理结果。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::handleReadable(CSession& stS) {
     std::vector<Frame_S> aFrames;
@@ -371,11 +387,11 @@ void CReactor::handleReadable(CSession& stS) {
     }
 }
 
-/*
- * 功能描述:  处理writable。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      处理 writable相关的数据并返回处理结果。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::handleWritable(CSession& stS) {
     if (stS.flush() == FlushResult_EN::Error) {
@@ -385,10 +401,11 @@ void CReactor::handleWritable(CSession& stS) {
     updateInterest(stS);
 }
 
-/*
- * 功能描述:  处理定时器。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      处理定时器。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::handleTimer() {
     const auto stNow = std::chrono::steady_clock::now();
@@ -416,10 +433,14 @@ void CReactor::handleTimer() {
                  m_stCtx.sessions().size(), uLoggedIn, m_stCtx.rooms().size());
     }
 
-    /* 周期性维护（数据归档等）：CReactor 只管每秒调一次，频率由钩子决定 */
+    /**
+     * @brief  周期性维护（数据归档等）：CReactor 只管每秒调一次，频率由钩子决定。
+     */
     if (secondHook_) secondHook_();
 
-    /* 回收超过滞留期的空房间（同时释放其历史消息内存） */
+    /**
+     * @brief  回收超过滞留期的空房间（同时释放其历史消息内存）。
+     */
     const int nTtl = m_stCtx.config().roomTtlSec;
     if (nTtl > 0) {
         const int64_t lDeadline = static_cast<int64_t>(uMs) - static_cast<int64_t>(nTtl) * 1000;
@@ -436,13 +457,16 @@ void CReactor::handleTimer() {
     }
 }
 
-/*
- * 功能描述:  执行reap 会话集合；实现上向 epoll 实例注册或注销描述符。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      执行 reap 会话集合；实现上向 epoll 实例注册或注销描述符。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::reapSessions() {
-    /* 关闭动作可能级联（关闭时广播导致对端写失败），故循环交换批次。 */
+    /**
+     * @brief  关闭动作可能级联（关闭时广播导致对端写失败），故循环交换批次。
+     */
     while (!m_uPendingClose.empty()) {
         std::vector<uint64_t> uBatch;
         uBatch.swap(m_uPendingClose);
@@ -451,8 +475,9 @@ void CReactor::reapSessions() {
             CSession* stS = m_stCtx.sessions().find(uId);
             if (stS == nullptr) continue;
 
-            /* 业务清理（退出房间、通知房友）通过钩子交给 business 层， */
-            /* CReactor 本身不理解房间语义。 */
+            /**
+             * @brief  业务清理（退出房间、通知房友）通过钩子交给 business 层， CReactor 本身不理解房间语义。
+             */
             if (m_stCloseHook) m_stCloseHook(*stS);
 
             const int hFd = stS->fd();
@@ -463,7 +488,9 @@ void CReactor::reapSessions() {
             if (m_nEpollFd >= 0 && hFd >= 0) {
                 ::epoll_ctl(m_nEpollFd, EPOLL_CTL_DEL, hFd, nullptr);
             }
-            /* 析构中 close(fd) */
+            /**
+             * @brief  析构中 close(fd)。
+             */
             m_stCtx.sessions().remove(uId);
 
             LOG_INFO("session#%llu disconnected from %s (rx=%llu B, tx=%llu B, total=%zu)",
@@ -474,19 +501,16 @@ void CReactor::reapSessions() {
     }
 }
 
-/* ---------------------------------------------------------------- 协议分发 */
-
-/*
- * 功能描述:  分发dispatch。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   stF              输入数据，类型 const Frame_S&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief  ---------------------------------------------------------------- 协议分发。
+ * @details 分发 dispatch。
  */
 void CReactor::dispatch(CSession& stS, const Frame_S& stF) {
     Json stJ = Json::object();
     if (!stF.payload.empty()) {
-        /* allow_exceptions = false */
+        /**
+         * @brief  allow_exceptions = false。
+         */
         stJ = Json::parse(stF.payload, nullptr, false);
         if (stJ.is_discarded()) {
             sendError(stS, "bad_json", "payload is not valid JSON");
@@ -498,22 +522,18 @@ void CReactor::dispatch(CSession& stS, const Frame_S& stF) {
         }
     }
 
-    /* 业务处理全部由注册表转交，CReactor 不含任何 opcode 分支。 */
+    /**
+     * @brief  业务处理全部由注册表转交，CReactor 不含任何 opcode 分支。
+     */
     if (!CServiceRegistry::instance().dispatch(stS, stF.op, stJ)) {
         sendError(stS, "unknown_op",
                   std::string("unsupported opcode: ") + opCodeName(stF.op));
     }
 }
 
-/* ---------------------------------------------------------------- 出站 */
-
-/*
- * 功能描述:  发送to；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * param [in]   stJ              输入数据，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief  ---------------------------------------------------------------- 出站。
+ * @details 发送 to；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
  */
 void CReactor::sendTo(CSession& stS, OpCode_EN enOp, const Json& stJ) {
     std::string strFrame;
@@ -532,13 +552,13 @@ void CReactor::sendTo(CSession& stS, OpCode_EN enOp, const Json& stJ) {
     updateInterest(stS);
 }
 
-/*
- * 功能描述:  发送错误；实现上向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   strCode          输入数据，类型 const std::string&。
- * param [in]   strText          消息文本，类型 const std::string&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      发送错误；实现上向目标会话或整个房间下发数据。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] strCode        输入数据；类型 const std::string&。
+ * @param[in] strText        消息文本；类型 const std::string&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::sendError(CSession& stS, const std::string& strCode, const std::string& strText) {
     Json stJ = Json::object();
@@ -547,21 +567,23 @@ void CReactor::sendError(CSession& stS, const std::string& strCode, const std::s
     sendTo(stS, OpCode_EN::ErrorMsg, stJ);
 }
 
-/*
- * 功能描述:  广播房间；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [in]   strRoomId        输入数据，类型 const std::string&。
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * param [in]   stJ              输入数据，类型 const Json&。
- * param [in]   uExceptId        输入数据，类型 uint64_t。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      广播房间；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
+ * @param[in] strRoomId      输入数据；类型 const std::string&。
+ * @param[in] enOp           协议操作码；类型 OpCode_EN。
+ * @param[in] stJ            输入数据；类型 const Json&。
+ * @param[in] uExceptId      输入数据；类型 uint64_t。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::broadcastRoom(const std::string& strRoomId, OpCode_EN enOp, const Json& stJ,
                             uint64_t uExceptId) {
     CRoom* pRoom = m_stCtx.rooms().find(strRoomId);
     if (pRoom == nullptr) return;
 
-    /* 帧只编码一次，房间越大收益越明显。 */
+    /**
+     * @brief  帧只编码一次，房间越大收益越明显。
+     */
     std::string strFrame;
     try {
         strFrame = encodeFrame(enOp, stJ);
@@ -580,11 +602,11 @@ void CReactor::broadcastRoom(const std::string& strRoomId, OpCode_EN enOp, const
     }, uExceptId);
 }
 
-/*
- * 功能描述:  更新interest；实现上向 epoll 实例注册或注销描述符、异常路径记录错误或警告日志。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      更新 interest；实现上向 epoll 实例注册或注销描述符、异常路径记录错误或警告日志。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::updateInterest(CSession& stS) {
     const bool nWant = stS.hasPendingOutput();
@@ -603,12 +625,12 @@ void CReactor::updateInterest(CSession& stS) {
     stS.setOutInterest(nWant);
 }
 
-/*
- * 功能描述:  请求close。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   strReason        失败原因描述，类型 const std::string&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      请求 close。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] strReason      失败原因描述；类型 const std::string&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CReactor::requestClose(CSession& stS, const std::string& strReason) {
     if (stS.state() == SessionState_EN::Closing) return;
@@ -618,5 +640,7 @@ void CReactor::requestClose(CSession& stS, const std::string& strReason) {
              static_cast<unsigned long long>(stS.id()), strReason.c_str());
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

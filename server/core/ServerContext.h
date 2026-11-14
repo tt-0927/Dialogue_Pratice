@@ -1,9 +1,9 @@
-/*
- * 文件名:    ServerContext.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  业务服务共享的运行时上下文。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       ServerContext.h
+ * @brief      业务服务共享的运行时上下文。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #pragma once
@@ -24,21 +24,26 @@ namespace dp {
 class CReactor;
 
 /**
- * @brief 服务端运行时上下文。
- *
- * @details 生命周期由 CServer 门面独占持有，并在启动时 `attachReactor()` 绑定事件循环。
- *          业务服务通过引用持有它，因此它必须先于所有 CService 构造、后于所有 CService 析构。
- *
- * @note 线程模型：单线程 reactor，所有方法都只能在事件循环线程调用，不加锁。
+ * @brief   服务端运行时上下文。
+ * @details 生命周期由 CServer 门面独占持有，并在启动时 `attachReactor()` 绑定事件循环。 业务服务通过引用持有它，因此它必须先于所有 CService 构造、后于所有 CService 析构。
+ * @author  JaTin
  */
 class CServerContext {
 public:
     /**
-     * @brief 用配置构造上下文。
-     * @param cfg 服务端参数，构造后可通过 config() 读取（不提供写入接口）。
+     * @brief      用配置构造上下文。
+     * @param[in] cfg            服务端参数，构造后可通过 config() 读取（不提供写入接口）；类型 ServerConfig_S。
+     * @return     构造/析构函数无返回值。
+     * @author     JaTin
      */
     explicit CServerContext(ServerConfig_S cfg);
 
+    /**
+     * @brief      构造本对象，完成成员初始化与依赖注入。
+     * @note       本函数无输入参数。
+     * @return     构造/析构函数无返回值。
+     * @author     JaTin
+     */
     ~CServerContext();
 
     CServerContext(const CServerContext&) = delete;
@@ -51,33 +56,45 @@ public:
      */
     void attachReactor(CReactor* reactor) noexcept { reactor_ = reactor; }
 
-    /* 只读配置。 */
+    /**
+     * @brief  只读配置。
+     */
     const ServerConfig_S& config() const noexcept { return m_stCfg; }
 
-    /* 会话表，可增删查。 */
+    /**
+     * @brief  会话表，可增删查。
+     */
     CSessionManager& sessions() noexcept { return m_stSessions; }
 
-    /* 房间表，可增删查。 */
+    /**
+     * @brief  房间表，可增删查。
+     */
     CRoomManager& rooms() noexcept { return rooms_; }
 
-    /* 用户库（持久化账号）。 */
+    /**
+     * @brief  用户库（持久化账号）。
+     */
     CUserRepository& users() noexcept { return m_stUsers; }
 
-    /* 聊天记录库（持久化历史）。 */
+    /**
+     * @brief  聊天记录库（持久化历史）。
+     */
     CMessageRepository& messages() noexcept { return m_stMessages; }
 
-    /* ---- 下发给客户端的 LLM 配置 ---- */
-
     /**
-     * @brief 设置待下发的 LLM 配置。
-     * @param cfg 已解析的 JSON 对象（结构由客户端定义，服务端只透传）。
+     * @brief  ---- 下发给客户端的 LLM 配置 ----。
+     * @details 设置待下发的 LLM 配置。
      */
     void setLlmConfig(Json cfg) noexcept { m_stLlmConfig = std::move(cfg); }
 
-    /* 是否已加载 LLM 配置。 */
+    /**
+     * @brief  是否已加载 LLM 配置。
+     */
     bool hasLlmConfig() const noexcept { return !m_stLlmConfig.is_null(); }
 
-    /* 待下发的 LLM 配置（未加载时为 null）。 */
+    /**
+     * @brief  待下发的 LLM 配置（未加载时为 null）。
+     */
     const Json& llmConfig() const noexcept { return m_stLlmConfig; }
 
     /**
@@ -88,18 +105,22 @@ public:
     uint64_t nextSeq() noexcept { return m_uNextSeq++; }
 
     /**
-     * @brief 向单个会话发送一帧。
-     * @param session 目标会话。
-     * @param op      协议操作码。
-     * @param payload JSON 负载。
+     * @brief      向单个会话发送一帧。
+     * @param[out] session        目标会话；类型 CSession&。
+     * @param[in] op             协议操作码；类型 OpCode_EN。
+     * @param[in] payload        JSON 负载；类型 const Json&。
+     * @return     无返回值；处理结果通过成员状态或信号对外体现。
+     * @author     JaTin
      */
     void sendTo(CSession& session, OpCode_EN op, const Json& payload);
 
     /**
-     * @brief 发送标准错误帧（`{"code":..,"text":..}`）。
-     * @param session 目标会话。
-     * @param code    机器可读的错误码，例如 `bad_name`。
-     * @param text    人类可读的说明。
+     * @brief      发送标准错误帧（`{"code":..,"text":..}`）。
+     * @param[out] session        目标会话；类型 CSession&。
+     * @param[in] code           机器可读的错误码，例如 `bad_name`；类型 const std::string&。
+     * @param[in] text           人类可读的说明；类型 const std::string&。
+     * @return     无返回值；处理结果通过成员状态或信号对外体现。
+     * @author     JaTin
      */
     void sendError(CSession& session, const std::string& code, const std::string& text);
 
@@ -111,35 +132,66 @@ public:
      * @param exceptId 要排除的会话 id，0 表示不排除（用于「回显给发送者本人」）。
      */
     void broadcastRoom(const std::string& roomId, OpCode_EN op, const Json& payload,
+                       /**
+                        * @brief  except编号。 初值 = 0)。
+                        * @note   类型 uint64_t；类/结构体成员变量。
+                        */
                        uint64_t exceptId = 0);
 
     /**
-     * @brief 请求关闭会话。
-     * @param session 目标会话。
-     * @param reason  日志用的原因描述。
-     * @details 只做标记，真正的回收在事件批次结束后由 CReactor 统一执行，
-     *          避免在遍历过程中销毁 CSession 导致迭代器失效。
+     * @brief      请求关闭会话。
+     * @details    只做标记，真正的回收在事件批次结束后由 CReactor 统一执行， 避免在遍历过程中销毁 CSession 导致迭代器失效。
+     * @param[out] session        目标会话；类型 CSession&。
+     * @param[in] reason         日志用的原因描述；类型 const std::string&。
+     * @return     无返回值；处理结果通过成员状态或信号对外体现。
+     * @author     JaTin
      */
     void requestClose(CSession& session, const std::string& reason);
 
 private:
-    /* < 启动参数（只读） */
+    /**
+     * @brief  启动参数（只读）
+     * @note   类型 ServerConfig_S；类/结构体成员变量。
+     */
     ServerConfig_S   m_stCfg;
-    /* < 连接表 */
+    /**
+     * @brief  连接表
+     * @note   类型 CSessionManager；类/结构体成员变量。
+     */
     CSessionManager m_stSessions;
-    /* < 房间表 */
+    /**
+     * @brief  房间表
+     * @note   类型 CRoomManager；类/结构体成员变量。
+     */
     CRoomManager    rooms_;
-    /* < 用户库 */
+    /**
+     * @brief  用户库
+     * @note   类型 CUserRepository；类/结构体成员变量。
+     */
     CUserRepository    m_stUsers;
-    /* < 聊天记录库 */
+    /**
+     * @brief  聊天记录库
+     * @note   类型 CMessageRepository；类/结构体成员变量。
+     */
     CMessageRepository m_stMessages;
-    /* < 全局消息序号 */
+    /**
+     * @brief  全局消息序号
+     * @note   类型 uint64_t；类/结构体成员变量。
+     */
     uint64_t       m_uNextSeq = 1;
-    /* < 登录时下发给客户端的 LLM 配置 */
+    /**
+     * @brief  登录时下发给客户端的 LLM 配置
+     * @note   类型 Json；类/结构体成员变量。
+     */
     Json           m_stLlmConfig;
-    /* < 事件循环，由 CServer 注入 */
+    /**
+     * @brief  事件循环，由 CServer 注入
+     * @note   类型 CReactor*；类/结构体成员变量。
+     */
     CReactor*       reactor_ = nullptr;
 };
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

@@ -1,9 +1,9 @@
-/*
- * 文件名:    UserService.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  用户领域业务的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       UserService.cpp
+ * @brief      用户领域业务的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/business/UserService.h"
@@ -18,9 +18,10 @@ namespace dp {
 namespace {
 
 /**
- * @brief 构造下发给客户端的资料快照。
- * @param s 会话。
- * @retval 含 userId / name / age / desc 的 JSON 对象。
+ * @brief      构造下发给客户端的资料快照。
+ * @param[in] stS            会话；类型 const CSession&。
+ * @return     含 userId / name / age / desc 的 JSON 对象。
+ * @author     JaTin
  */
 Json profileJson(const CSession& stS) {
     Json stP = Json::object();
@@ -31,25 +32,28 @@ Json profileJson(const CSession& stS) {
     return stP;
 }
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  返回本业务服务所处理的协议操作码列表。
- * 作者:      JaTin
- * return:    返回 std::vector<OpCode_EN> 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      返回本业务服务所处理的协议操作码列表。
+ * @note       本函数无输入参数。
+ * @return     返回 vector<OpCode_EN> CUserService:: 类型的处理结果。
+ * @author     JaTin
  */
 std::vector<OpCode_EN> CUserService::opcodes() const {
     return {OpCode_EN::Login, OpCode_EN::Register, OpCode_EN::UpdateProfile, OpCode_EN::Ping};
 }
 
-/*
- * 功能描述:  按操作码分发并处理一条业务请求。
- * 作者:      JaTin
- * param [out]  stSession        目标会话对象，类型 CSession&。
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * param [in]   stPayload        协议载荷内容，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      按操作码分发并处理一条业务请求。
+ * @param[out] stSession      目标会话对象；类型 CSession&。
+ * @param[in] enOp           协议操作码；类型 OpCode_EN。
+ * @param[in] stPayload      协议载荷内容；类型 const Json&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CUserService::handle(CSession& stSession, OpCode_EN enOp, const Json& stPayload) {
     switch (enOp) {
@@ -61,12 +65,12 @@ void CUserService::handle(CSession& stSession, OpCode_EN enOp, const Json& stPay
     }
 }
 
-/*
- * 功能描述:  完成登录on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   stJ              输入数据，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      完成登录 on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] stJ            输入数据；类型 const Json&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CUserService::onLogin(CSession& stS, const Json& stJ) {
     if (stS.loggedIn()) {
@@ -104,7 +108,9 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
         }
     }
 
-    /* 客户端带了 password 就走账号校验；没带则走兼容路径（昵称匹配或匿名）。 */
+    /**
+     * @brief  客户端带了 password 就走账号校验；没带则走兼容路径（昵称匹配或匿名）。
+     */
     const bool nHasPassword = stJ.contains("password") && stJ["password"].is_string()
                              && !stJ["password"].get<std::string>().empty();
 
@@ -115,7 +121,9 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
         UserRecord_S stVerified;
         if (!m_stCtx.users().verifyCredentials(strName, stJ["password"].get<std::string>(),
                                             &stVerified)) {
-            /* 统一提示，不区分「账号不存在」和「密码错误」，避免账号枚举 */
+            /**
+             * @brief  统一提示，不区分「账号不存在」和「密码错误」，避免账号枚举。
+             */
             LOG_WARN("session#%llu 登录失败（账号 '%s'）",
                      static_cast<unsigned long long>(stS.id()), strName.c_str());
             m_stCtx.sendError(stS, "auth_failed", "账号或密码错误");
@@ -126,7 +134,9 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
         m_stCtx.sendError(stS, "auth_required", "本服务器要求账号密码登录");
         return;
     } else {
-        /* 兼容模式：先按登录名精确匹配，再按昵称忽略大小写匹配 */
+        /**
+         * @brief  兼容模式：先按登录名精确匹配，再按昵称忽略大小写匹配。
+         */
         stUser = m_stCtx.users().findByUsername(strName);
         if (!stUser) stUser = m_stCtx.users().findByNickname(strName);
     }
@@ -154,11 +164,14 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
     Json stResp = profileJson(stS);
     stResp["ok"] = true;
     stResp["serverTime"] = nowMs();
-    /* 0 表示匿名；客户端可用于区分身份来源 */
+    /**
+     * @brief  0 表示匿名；客户端可用于区分身份来源。
+     */
     stResp["accountId"] = lAccountId;
 
-    /* 服务端统一配置：客户端不必各自维护 llm.json。 */
-    /* 结构原样透传（由客户端的 AppConfig 解析），服务端不关心字段含义。 */
+    /**
+     * @brief  服务端统一配置：客户端不必各自维护 llm.json。 结构原样透传（由客户端的 AppConfig 解析），服务端不关心字段含义。
+     */
     if (m_stCtx.hasLlmConfig()) {
         stResp["llmConfig"] = m_stCtx.llmConfig();
     }
@@ -175,15 +188,18 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
              static_cast<unsigned long long>(stS.id()), strName.c_str());
 }
 
-/*
- * 功能描述:  注册on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   stJ              输入数据，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      注册 on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] stJ            输入数据；类型 const Json&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CUserService::onRegister(CSession& stS, const Json& stJ) {
-    /* 单连接注册次数上限：防止有人写个脚本批量刷号 */
+    /**
+     * @brief  单连接注册次数上限：防止有人写个脚本批量刷号
+     * @note   取值 3。
+     */
     constexpr int nKMaxRegisterPerSession = 3;
 
     if (!m_stCtx.config().allowRegistration) {
@@ -200,7 +216,9 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
     }
     stS.bumpRegisterAttempts();
 
-    /* ---- 必填：登录名 ---- */
+    /**
+     * @brief  ---- 必填：登录名 ----。
+     */
     if (!stJ.contains("username") || !stJ["username"].is_string()) {
         m_stCtx.sendError(stS, "bad_payload", "field 'username' (string) is required");
         return;
@@ -212,7 +230,9 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
         return;
     }
 
-    /* ---- 必填：密码 ---- */
+    /**
+     * @brief  ---- 必填：密码 ----。
+     */
     if (!stJ.contains("password") || !stJ["password"].is_string()) {
         m_stCtx.sendError(stS, "bad_payload", "field 'password' (string) is required");
         return;
@@ -223,7 +243,9 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
         return;
     }
 
-    /* ---- 可选：昵称（缺省用登录名）---- */
+    /**
+     * @brief  ---- 可选：昵称（缺省用登录名）----。
+     */
     std::string strNickname = strUsername;
     if (stJ.contains("nickname") && stJ["nickname"].is_string()) {
         strNickname = trim(stJ["nickname"].get<std::string>());
@@ -233,14 +255,18 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
         }
     }
 
-    /* ---- 可选：年龄 ---- */
+    /**
+     * @brief  ---- 可选：年龄 ----。
+     */
     int nAge = 0;
     if (stJ.contains("age") && !stJ["age"].is_null() && !readAge(stJ, nAge)) {
         m_stCtx.sendError(stS, "bad_age", "age must be an integer in 0..150");
         return;
     }
 
-    /* ---- 可选：简介 ---- */
+    /**
+     * @brief  ---- 可选：简介 ----。
+     */
     std::string strDesc;
     if (stJ.contains("desc") && stJ["desc"].is_string()) {
         strDesc = trim(stJ["desc"].get<std::string>());
@@ -250,7 +276,9 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
         }
     }
 
-    /* ---- 唯一性检查 ---- */
+    /**
+     * @brief  ---- 唯一性检查 ----。
+     */
     if (m_stCtx.users().findByUsername(strUsername)) {
         m_stCtx.sendError(stS, "username_taken", "该登录名已被占用");
         return;
@@ -277,12 +305,12 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
              strNickname.c_str(), nAge);
 }
 
-/*
- * 功能描述:  更新on 个人资料；实现上向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   stJ              输入数据，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      更新 on 个人资料；实现上向目标会话或整个房间下发数据。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] stJ            输入数据；类型 const Json&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
     if (!stS.loggedIn()) {
@@ -290,7 +318,9 @@ void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
         return;
     }
 
-    /* 只更新请求里出现的字段，没带的保持原值 */
+    /**
+     * @brief  只更新请求里出现的字段，没带的保持原值。
+     */
     std::string strNewName = stS.name();
     if (stJ.contains("name") && !stJ["name"].is_null()) {
         if (!stJ["name"].is_string()) {
@@ -336,12 +366,16 @@ void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
     stResp["ok"] = true;
     m_stCtx.sendTo(stS, OpCode_EN::ProfileResp, stResp);
 
-    /* 改名必须通知同房间，否则别人成员列表里还是旧名字 */
+    /**
+     * @brief  改名必须通知同房间，否则别人成员列表里还是旧名字。
+     */
     if (nRenamed && !stS.room().empty()) {
         Json stSys = Json::object();
         stSys["event"] = "rename";
         stSys["room"] = stS.room();
-        /* 客户端用它更新成员列表 */
+        /**
+         * @brief  客户端用它更新成员列表。
+         */
         stSys["name"] = strNewName;
         stSys["text"] = strOldName + " 改名为 " + strNewName;
         stSys["ts"] = nowMs();
@@ -352,11 +386,11 @@ void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
              static_cast<unsigned long long>(stS.id()), strNewName.c_str(), nNewAge, strNewDesc.size());
 }
 
-/*
- * 功能描述:  执行onping；实现上向目标会话或整个房间下发数据。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      执行 onping；实现上向目标会话或整个房间下发数据。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CUserService::onPing(CSession& stS, const Json& /*j*/) {
     Json stResp = Json::object();
@@ -364,5 +398,7 @@ void CUserService::onPing(CSession& stS, const Json& /*j*/) {
     m_stCtx.sendTo(stS, OpCode_EN::Pong, stResp);
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

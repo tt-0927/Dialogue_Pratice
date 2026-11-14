@@ -1,9 +1,9 @@
-/*
- * 文件名:    MessageRepository.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  聊天记录表的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       MessageRepository.cpp
+ * @brief      聊天记录表的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/core/MessageRepository.h"
@@ -47,38 +47,40 @@ CREATE INDEX IF NOT EXISTS idx_messages_account  ON messages(account_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created  ON messages(created_at);
 )SQL";
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  获取open。
- * 作者:      JaTin
- * param [in]   strPath          文件路径，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      获取 open相关的数据并返回处理结果。
+ * @param[in] strPath        文件路径；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CMessageRepository::open(const std::string& strPath, std::string* pError) {
     return db_.open(strPath, pError);
 }
 
-/*
- * 功能描述:  确保schema。
- * 作者:      JaTin
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      确保 schema。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CMessageRepository::ensureSchema(std::string* pError) {
     return db_.exec(kSchema, pError);
 }
 
-/*
- * 功能描述:  追加append；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strRoomId        输入数据，类型 const std::string&。
- * param [in]   stEntry          条目，类型 const HistoryEntry_S&。
- * param [in]   lAccountId       账号编号，类型 int64_t。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      追加 append；失败时返回 false。
+ * @param[in] strRoomId      输入数据；类型 const std::string&。
+ * @param[in] stEntry        条目；类型 const HistoryEntry_S&。
+ * @param[in] lAccountId     账号编号；类型 int64_t。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CMessageRepository::append(const std::string& strRoomId, const HistoryEntry_S& stEntry,
                                int64_t lAccountId, std::string* pError) {
@@ -115,12 +117,12 @@ bool CMessageRepository::append(const std::string& strRoomId, const HistoryEntry
     return true;
 }
 
-/*
- * 功能描述:  加载recent。
- * 作者:      JaTin
- * param [in]   strRoomId        输入数据，类型 const std::string&。
- * param [in]   nLimit           输入数据，类型 int。
- * return:    返回 std::vector<HistoryEntry_S> 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      加载 recent相关的数据并返回处理结果。
+ * @param[in] strRoomId      输入数据；类型 const std::string&。
+ * @param[in] nLimit         输入数据；类型 int。
+ * @return     返回 vector<HistoryEntry_S> CMessageRepository:: 类型的处理结果。
+ * @author     JaTin
  */
 std::vector<HistoryEntry_S> CMessageRepository::loadRecent(const std::string& strRoomId, int nLimit) {
     std::vector<HistoryEntry_S> aOut;
@@ -147,16 +149,18 @@ std::vector<HistoryEntry_S> CMessageRepository::loadRecent(const std::string& st
         aOut.push_back(std::move(stEntry));
     }
 
-    /* 查询是倒序，返回正序 */
+    /**
+     * @brief  查询是倒序，返回正序。
+     */
     std::reverse(aOut.begin(), aOut.end());
     return aOut;
 }
 
-/*
- * 功能描述:  统计expired。
- * 作者:      JaTin
- * param [in]   nRetentionDays   输入数据，类型 int。
- * return:    返回计数或长度；无有效数据时返回 0。
+/**
+ * @brief      统计 expired。
+ * @param[in] nRetentionDays 输入数据；类型 int。
+ * @return     返回计数或长度；无有效数据时返回 0。
+ * @author     JaTin
  */
 size_t CMessageRepository::countExpired(int nRetentionDays) {
     if (!db_.isOpen() || nRetentionDays <= 0) return 0;
@@ -171,13 +175,13 @@ size_t CMessageRepository::countExpired(int nRetentionDays) {
     return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
-/*
- * 功能描述:  归档andprune。
- * 作者:      JaTin
- * param [in]   nRetentionDays   输入数据，类型 int。
- * param [in]   strArchivePath   输入数据，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    返回处理结果码；0 表示成功，负值或 -1 表示失败。
+/**
+ * @brief      归档 andprune。
+ * @param[in] nRetentionDays 输入数据；类型 int。
+ * @param[in] strArchivePath 输入数据；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     返回处理结果码；0 表示成功，负值或 -1 表示失败。
+ * @author     JaTin
  */
 int CMessageRepository::archiveAndPrune(int nRetentionDays, const std::string& strArchivePath,
                                        std::string* pError) {
@@ -189,7 +193,9 @@ int CMessageRepository::archiveAndPrune(int nRetentionDays, const std::string& s
     const int64_t lCutoff = static_cast<int64_t>(nowMs())
                            - static_cast<int64_t>(nRetentionDays) * 86400000LL;
 
-    /* ATTACH 不支持参数绑定，路径只能拼进 SQL —— 手工转义单引号。 */
+    /**
+     * @brief  ATTACH 不支持参数绑定，路径只能拼进 SQL —— 手工转义单引号。
+     */
     std::string strEscaped;
     strEscaped.reserve(strArchivePath.size());
     for (char chC : strArchivePath) {
@@ -200,7 +206,9 @@ int CMessageRepository::archiveAndPrune(int nRetentionDays, const std::string& s
     const std::string strAttach = "ATTACH DATABASE '" + strEscaped + "' AS arch";
     if (!db_.exec(strAttach, pError)) return 0;
 
-    /* 归档库建表（结构必须与主库一致，才能用 SELECT * 复制） */
+    /**
+     * @brief  归档库建表（结构必须与主库一致，才能用 SELECT * 复制）。
+     */
     const std::string strCreateArchive = R"SQL(
 CREATE TABLE IF NOT EXISTS arch.messages (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,7 +229,9 @@ CREATE TABLE IF NOT EXISTS arch.messages (
         return 0;
     }
 
-    /* 复制到归档库：唯一键 + INSERT OR IGNORE 保证重复执行不产生副本 */
+    /**
+     * @brief  复制到归档库：唯一键 + INSERT OR IGNORE 保证重复执行不产生副本。
+     */
     int nArchived = 0;
     {
         CStatement stCopy(db_, "INSERT OR IGNORE INTO arch.messages "
@@ -242,7 +252,9 @@ CREATE TABLE IF NOT EXISTS arch.messages (
         }
     }
 
-    /* 复制成功后才删除主库记录 */
+    /**
+     * @brief  复制成功后才删除主库记录。
+     */
     {
         CStatement stDel(db_, "DELETE FROM main.messages WHERE created_at < ?");
         if (!stDel.ok()) {
@@ -259,10 +271,11 @@ CREATE TABLE IF NOT EXISTS arch.messages (
     return nArchived;
 }
 
-/*
- * 功能描述:  统计count。
- * 作者:      JaTin
- * return:    返回计数或长度；无有效数据时返回 0。
+/**
+ * @brief      统计 count。
+ * @note       本函数无输入参数。
+ * @return     返回计数或长度；无有效数据时返回 0。
+ * @author     JaTin
  */
 size_t CMessageRepository::count() {
     if (!db_.isOpen()) return 0;
@@ -272,5 +285,7 @@ size_t CMessageRepository::count() {
     return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

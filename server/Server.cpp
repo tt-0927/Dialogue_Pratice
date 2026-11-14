@@ -1,9 +1,9 @@
-/*
- * 文件名:    Server.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  服务端组合根：创建上下文、事件循环与业务服务，并完成接线。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Server.cpp
+ * @brief      服务端组合根：创建上下文、事件循环与业务服务，并完成接线。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/Server.h"
@@ -25,31 +25,35 @@
 
 namespace dp {
 
-/*
- * 功能描述:  构造 CServer 对象，完成成员初始化与依赖注入。
- * 作者:      JaTin
- * param [in]   stCfg            输入数据，类型 Config。
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      构造 CServer 对象，完成成员初始化与依赖注入。
+ * @param[in] stCfg          输入数据；类型 Config。
+ * @return     构造/析构函数无返回值。
+ * @author     JaTin
  */
 CServer::CServer(Config stCfg)
     : m_stCfg(std::move(stCfg)), m_stCtx(std::make_unique<CServerContext>(m_stCfg)) {}
 
-/*
- * 功能描述:  析构 CServer 对象，释放运行期持有的全部资源。
- * 作者:      JaTin
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      析构 CServer 对象，释放运行期持有的全部资源。
+ * @note       本函数无输入参数。
+ * @return     无返回值（构造函数或析构函数）。
+ * @author     JaTin
  */
 CServer::~CServer() {
-    /* 先销毁事件循环（它持有 fd 与 epoll），再清空服务注册表，最后销毁上下文。 */
+    /**
+     * @brief  先销毁事件循环（它持有 fd 与 epoll），再清空服务注册表，最后销毁上下文。
+     */
     reactor_.reset();
     CServiceRegistry::instance().clear();
     m_stCtx.reset();
 }
 
-/*
- * 功能描述:  加载大模型配置；实现上异常路径记录错误或警告日志；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      加载大模型配置；实现上异常路径记录错误或警告日志；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CServer::loadLlmConfig() {
     const std::string& strPath = m_stCfg.llmConfigPath;
@@ -79,10 +83,11 @@ bool CServer::loadLlmConfig() {
     return true;
 }
 
-/*
- * 功能描述:  获取opendatabases；实现上异常路径记录错误或警告日志；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      获取 opendatabases；实现上异常路径记录错误或警告日志；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CServer::openDatabases() {
     std::string strError;
@@ -94,7 +99,9 @@ bool CServer::openDatabases() {
         std::filesystem::create_directories(stParent, stEc);
     };
 
-    /* ---- 用户库 ---- */
+    /**
+     * @brief  ---- 用户库 ----。
+     */
     stEnsureParent(m_stCfg.usersDbPath);
     if (!m_stCtx->users().open(m_stCfg.usersDbPath, &strError)) {
         LOG_ERROR("打开用户库失败（%s）：%s", m_stCfg.usersDbPath.c_str(), strError.c_str());
@@ -107,7 +114,9 @@ bool CServer::openDatabases() {
     LOG_INFO("用户库就绪：%s（%zu 个用户）",
              m_stCfg.usersDbPath.c_str(), m_stCtx->users().count());
 
-    /* ---- 聊天记录库 ---- */
+    /**
+     * @brief  ---- 聊天记录库 ----。
+     */
     stEnsureParent(m_stCfg.messagesDbPath);
     if (!m_stCtx->messages().open(m_stCfg.messagesDbPath, &strError)) {
         LOG_ERROR("打开聊天记录库失败（%s）：%s",
@@ -125,14 +134,19 @@ bool CServer::openDatabases() {
     return true;
 }
 
-/*
- * 功能描述:  执行seeddefault 用户表；实现上异常路径记录错误或警告日志。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      执行 seeddefault 用户表；实现上异常路径记录错误或警告日志。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CServer::seedDefaultUsers() {
     if (m_stCtx->users().count() > 0) return;
 
+    /**
+     * @brief   SeedS。
+     * @author  JaTin
+     */
     struct Seed_S {
         const char* username;
         const char* nickname;
@@ -140,9 +154,9 @@ void CServer::seedDefaultUsers() {
         const char* description;
     };
 
-    /* 初始密码统一 123456：仅用于首次部署验证，正式使用应改掉。 */
-    /* 昵称与登录名保持一致，避免「填 alice 匹配不到 Alice」这类歧义。 */
-    /* 需要好看的显示名时，直接改库里的 nickname 即可。 */
+    /**
+     * @brief  初始密码统一 123456：仅用于首次部署验证，正式使用应改掉。 昵称与登录名保持一致，避免「填 alice 匹配不到 Alice」这类歧义。 需要好看的显示名时，直接改库里的 nickname 即可。
+     */
     const Seed_S stSeeds[] = {
         {"alice", "alice", 24, "英语学习者，喜欢徒步"},
         {"bob",   "bob",   28, "英语母语者，来练中文"},
@@ -162,10 +176,11 @@ void CServer::seedDefaultUsers() {
     }
 }
 
-/*
- * 功能描述:  每秒定时器回调：回收空闲会话、归档过期消息并输出统计信息。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      每秒定时器回调：回收空闲会话、归档过期消息并输出统计信息。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CServer::onSecondTick() {
     if (m_stCfg.messageRetentionDays <= 0) return;
@@ -176,10 +191,11 @@ void CServer::onSecondTick() {
     pruneMessages();
 }
 
-/*
- * 功能描述:  执行prune 消息记录；实现上异常路径记录错误或警告日志。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      执行 prune 消息记录；实现上异常路径记录错误或警告日志。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CServer::pruneMessages() {
     std::error_code stEc;
@@ -203,10 +219,11 @@ void CServer::pruneMessages() {
     }
 }
 
-/*
- * 功能描述:  启动start；实现上异常路径记录错误或警告日志；失败时返回 false。
- * 作者:      JaTin
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      启动 start；实现上异常路径记录错误或警告日志；失败时返回 false。
+ * @note       本函数无输入参数。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CServer::start() {
     if (m_nStarted) return true;
@@ -221,14 +238,16 @@ bool CServer::start() {
     reactor_ = std::make_unique<CReactor>(*m_stCtx);
     m_stCtx->attachReactor(reactor_.get());
 
-    /* 启动时先归档一次（把停机期间过期的记录清掉），之后每 24 小时一次 */
+    /**
+     * @brief  启动时先归档一次（把停机期间过期的记录清掉），之后每 24 小时一次。
+     */
     m_stLastPrune = std::chrono::steady_clock::now();
     if (m_stCfg.messageRetentionDays > 0) pruneMessages();
     reactor_->setSecondHook([this] { onSecondTick(); });
 
-    /* ---- 注册业务服务 ------------------------------------------------------ */
-    /* 各服务以 unique_ptr 交给注册表独占持有；这里额外保留 CRoomService 的裸指针， */
-    /* 因为「会话销毁时退出房间」的清理动作需要回调它（生命周期由注册表保证）。 */
+    /**
+     * @brief  ---- 注册业务服务 ------------------------------------------------------ 各服务以 unique_ptr 交给注册表独占持有；这里额外保留 CRoomService 的裸指针， 因为「会话销毁时退出房间」的清理动作需要回调它（生命周期由注册表保证）。
+     */
     auto stUserService  = std::make_unique<CUserService>(*m_stCtx);
     auto stRoomService  = std::make_unique<CRoomService>(*m_stCtx);
     auto stChatService  = std::make_unique<ChatService>(*m_stCtx);
@@ -236,7 +255,9 @@ bool CServer::start() {
 
     CRoomService* pRoomServiceRaw = stRoomService.get();
     reactor_->setSessionCloseHook([pRoomServiceRaw](CSession& session) {
-        /* 连接断开等价于主动离房：通知房友并处理空房滞留。 */
+        /**
+         * @brief  连接断开等价于主动离房：通知房友并处理空房滞留。
+         */
         pRoomServiceRaw->leaveRoom(session, true);
     });
 
@@ -257,10 +278,11 @@ bool CServer::start() {
     return true;
 }
 
-/*
- * 功能描述:  运行run；实现上异常路径记录错误或警告日志。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      运行 run；实现上异常路径记录错误或警告日志。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CServer::run() {
     if (!m_nStarted) {
@@ -270,14 +292,17 @@ void CServer::run() {
     reactor_->run();
 }
 
-/*
- * 功能描述:  停止stop。
- * 作者:      JaTin
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      停止 stop。
+ * @note       本函数无输入参数。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CServer::stop() {
     if (reactor_) reactor_->stop();
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

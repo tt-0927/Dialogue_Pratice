@@ -1,9 +1,9 @@
-/*
- * 文件名:    Crypto.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  SHA-256 与密码哈希的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Crypto.cpp
+ * @brief      SHA-256 与密码哈希的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/core/Crypto.h"
@@ -17,7 +17,9 @@
 namespace dp {
 namespace {
 
-/* SHA-256 的 64 个轮常量。 */
+/**
+ * @brief  SHA-256 的 64 个轮常量。
+ */
 constexpr std::array<uint32_t, 64> kRoundConstants = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -29,32 +31,32 @@ constexpr std::array<uint32_t, 64> kRoundConstants = {
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
 
-/* 32 位循环右移。 */
-/*
- * 功能描述:  获取rotr。
- * 作者:      JaTin
- * param [in]   uValue           待设置的数值，类型 uint32_t。
- * param [in]   nBits            输入数据，类型 int。
- * return:    返回 inline uint32_t 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief  32 位循环右移。
+ * @details 获取 rotr相关的数据并返回处理结果。
  */
 inline uint32_t rotr(uint32_t uValue, int nBits) {
     return (uValue >> nBits) | (uValue << (32 - nBits));
 }
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  获取sha256hex。
- * 作者:      JaTin
- * param [in]   strData          原始字节数据，类型 const std::string&。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      获取 sha256hex相关的数据并返回处理结果。
+ * @param[in] strData        原始字节数据；类型 const std::string&。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string sha256Hex(const std::string& strData) {
     std::array<uint32_t, 8> uHash = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
 
-    /* ---- 填充：0x80 + 若干 0 + 64 位大端比特长度 ---- */
+    /**
+     * @brief  ---- 填充：0x80 + 若干 0 + 64 位大端比特长度 ----。
+     */
     std::vector<uint8_t> uMessage(strData.begin(), strData.end());
     const uint64_t uBitLength = static_cast<uint64_t>(uMessage.size()) * 8;
     uMessage.push_back(0x80);
@@ -63,7 +65,9 @@ std::string sha256Hex(const std::string& strData) {
         uMessage.push_back(static_cast<uint8_t>((uBitLength >> (i * 8)) & 0xFF));
     }
 
-    /* ---- 逐块压缩 ---- */
+    /**
+     * @brief  ---- 逐块压缩 ----。
+     */
     for (size_t offset = 0; offset < uMessage.size(); offset += 64) {
         uint32_t uW[64] = {0};
         for (int i = 0; i < 16; ++i) {
@@ -98,7 +102,9 @@ std::string sha256Hex(const std::string& strData) {
         uHash[4] += stE; uHash[5] += f; uHash[6] += g; uHash[7] += stH;
     }
 
-    /* ---- 转十六进制 ---- */
+    /**
+     * @brief  ---- 转十六进制 ----。
+     */
     static const char* strKHex = "0123456789abcdef";
     std::string strOut;
     strOut.reserve(64);
@@ -110,11 +116,11 @@ std::string sha256Hex(const std::string& strData) {
     return strOut;
 }
 
-/*
- * 功能描述:  获取randomsalt。
- * 作者:      JaTin
- * param [in]   uBytes           字节数，类型 size_t。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      获取 randomsalt相关的数据并返回处理结果。
+ * @param[in] uBytes         字节数；类型 size_t。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string randomSalt(size_t uBytes) {
     std::string strRaw;
@@ -135,38 +141,42 @@ std::string randomSalt(size_t uBytes) {
         }
     }
 
-    /* 兜底：没有 urandom 时用时间 + 栈地址混合。安全性差，仅保证系统能起来。 */
+    /**
+     * @brief  兜底：没有 urandom 时用时间 + 栈地址混合。安全性差，仅保证系统能起来。
+     */
     std::fprintf(stderr, "[crypto] /dev/urandom 不可用，盐的随机性下降\n");
     const uint64_t uSeed = static_cast<uint64_t>(std::time(nullptr))
                           ^ reinterpret_cast<uintptr_t>(&strRaw);
     return sha256Hex(std::to_string(uSeed)).substr(0, uBytes * 2);
 }
 
-/*
- * 功能描述:  计算摘要密码。
- * 作者:      JaTin
- * param [in]   strSalt          输入数据，类型 const std::string&。
- * param [in]   strPassword      登录密码，类型 const std::string&。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      计算摘要密码。
+ * @param[in] strSalt        输入数据；类型 const std::string&。
+ * @param[in] strPassword    登录密码；类型 const std::string&。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string hashPassword(const std::string& strSalt, const std::string& strPassword) {
     return sha256Hex(strSalt + ":" + strPassword);
 }
 
-/*
- * 功能描述:  校验密码；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strSalt          输入数据，类型 const std::string&。
- * param [in]   strPassword      登录密码，类型 const std::string&。
- * param [in]   strExpected      输入数据，类型 const std::string&。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      校验密码；失败时返回 false。
+ * @param[in] strSalt        输入数据；类型 const std::string&。
+ * @param[in] strPassword    登录密码；类型 const std::string&。
+ * @param[in] strExpected    输入数据；类型 const std::string&。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool verifyPassword(const std::string& strSalt, const std::string& strPassword,
                     const std::string& strExpected) {
     const std::string strActual = hashPassword(strSalt, strPassword);
     if (strActual.size() != strExpected.size()) return false;
 
-    /* 常量时间比较：长度相同的前提下不提前返回，避免时间侧信道 */
+    /**
+     * @brief  常量时间比较：长度相同的前提下不提前返回，避免时间侧信道。
+     */
     unsigned char diff = 0;
     for (size_t i = 0; i < strActual.size(); ++i) {
         diff |= static_cast<unsigned char>(strActual[i] ^ strExpected[i]);
@@ -174,5 +184,7 @@ bool verifyPassword(const std::string& strSalt, const std::string& strPassword,
     return diff == 0;
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

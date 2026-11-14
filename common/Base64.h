@@ -1,15 +1,18 @@
-/*
- * 文件名:    Base64.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  Base64 头文件，声明相关类型与接口。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Base64.h
+ * @brief      Base64 头文件，声明相关类型与接口。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* common/Base64.h */
+/**
+ * @brief  common/Base64.h。
+ */
 
-/* 标准 Base64 编解码（RFC 4648，带 '=' 填充）。 */
-/* 语音消息把二进制 Opus 容器塞进 JSON 字符串，客户端与服务端共用这一份实现。 */
+/**
+ * @brief  标准 Base64 编解码（RFC 4648，带 '=' 填充）。 语音消息把二进制 Opus 容器塞进 JSON 字符串，客户端与服务端共用这一份实现。
+ */
 #pragma once
 
 #include <cstdint>
@@ -18,6 +21,12 @@
 
 namespace dp {
 
+/**
+ * @brief      编码 base64。
+ * @param[in] input          输入；类型 const std::string&。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
+ */
 inline std::string base64Encode(const std::string& input) {
     static constexpr char kTable[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -54,7 +63,12 @@ inline std::string base64Encode(const std::string& input) {
     return out;
 }
 
-/* 解码；遇到非法字符或长度不合法时返回空串（调用方据此报 bad_voice）。 */
+/**
+ * @brief      解码；遇到非法字符或长度不合法时返回空串（调用方据此报 bad_voice）。
+ * @param[in] input          输入；类型 std::string_view。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
+ */
 inline std::string base64Decode(std::string_view input) {
     auto value = [](char c) -> int {
         if (c >= 'A' && c <= 'Z') return c - 'A';
@@ -65,7 +79,9 @@ inline std::string base64Decode(std::string_view input) {
         return -1;
     };
 
-    /* 先滤掉空白与换行（有些客户端会折行） */
+    /**
+     * @brief  先滤掉空白与换行（有些客户端会折行）。
+     */
     std::string clean;
     clean.reserve(input.size());
     for (char c : input) {
@@ -83,13 +99,17 @@ inline std::string base64Decode(std::string_view input) {
         for (int k = 0; k < 4; ++k) {
             const char c = clean[i + k];
             if (c == '=') {
-                /* '=' 只允许出现在最后两位 */
+                /**
+                 * @brief  '=' 只允许出现在最后两位。
+                 */
                 if (i + 4 != clean.size() || k < 2) return {};
                 ++padding;
                 v[k] = 0;
                 continue;
             }
-            /* '=' 之后不能再有数据 */
+            /**
+             * @brief  '=' 之后不能再有数据。
+             */
             if (padding > 0) return {};
             v[k] = value(c);
             if (v[k] < 0) return {};
@@ -106,5 +126,7 @@ inline std::string base64Decode(std::string_view input) {
     return out;
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

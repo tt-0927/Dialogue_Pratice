@@ -1,9 +1,9 @@
-/*
- * 文件名:    VoiceService.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  媒体层语音消息的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       VoiceService.cpp
+ * @brief      媒体层语音消息的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/media/VoiceService.h"
@@ -14,21 +14,22 @@
 
 namespace dp {
 
-/*
- * 功能描述:  返回本业务服务所处理的协议操作码列表。
- * 作者:      JaTin
- * return:    返回 std::vector<OpCode_EN> 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      返回本业务服务所处理的协议操作码列表。
+ * @note       本函数无输入参数。
+ * @return     返回 vector<OpCode_EN> CVoiceService:: 类型的处理结果。
+ * @author     JaTin
  */
 std::vector<OpCode_EN> CVoiceService::opcodes() const {
     return {OpCode_EN::Voice};
 }
 
-/*
- * 功能描述:  按操作码分发并处理一条业务请求。
- * 作者:      JaTin
- * param [out]  stS              目标会话对象，类型 CSession&。
- * param [in]   stJ              输入数据，类型 const Json&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      按操作码分发并处理一条业务请求。
+ * @param[out] stS            目标会话对象；类型 CSession&。
+ * @param[in] stJ            输入数据；类型 const Json&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CVoiceService::handle(CSession& stS, OpCode_EN /*op*/, const Json& stJ) {
     if (!stS.loggedIn()) {
@@ -68,11 +69,15 @@ void CVoiceService::handle(CSession& stS, OpCode_EN /*op*/, const Json& stJ) {
     stPush["name"]       = stS.name();
     stPush["room"]       = strRoomId;
     stPush["durationMs"] = uDurationMs;
-    /* 原样转发，省一次重新编码 */
+    /**
+     * @brief  原样转发，省一次重新编码。
+     */
     stPush["opus"]       = strBase64;
     stPush["ts"]         = lTs;
 
-    /* 与文本一致：先落历史再广播，回显给发送者本人。 */
+    /**
+     * @brief  与文本一致：先落历史再广播，回显给发送者本人。
+     */
     HistoryEntry_S stEntry;
     stEntry.seq        = uSeq;
     stEntry.from       = stS.id();
@@ -82,7 +87,9 @@ void CVoiceService::handle(CSession& stS, OpCode_EN /*op*/, const Json& stJ) {
     stEntry.kind       = HistoryKind_EN::Voice;
     stEntry.ts         = lTs;
 
-    /* 持久化：先落库再进内存缓冲（同文本消息的处理） */
+    /**
+     * @brief  持久化：先落库再进内存缓冲（同文本消息的处理）。
+     */
     std::string strDbError;
     if (!m_stCtx.messages().append(strRoomId, stEntry, stS.accountId(), &strDbError)) {
         LOG_WARN("写入语音记录失败：%s", strDbError.c_str());
@@ -100,5 +107,7 @@ void CVoiceService::handle(CSession& stS, OpCode_EN /*op*/, const Json& stJ) {
              static_cast<unsigned long long>(stS.id()), uDurationMs, strRoomId.c_str());
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

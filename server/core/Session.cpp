@@ -1,12 +1,14 @@
-/*
- * 文件名:    Session.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  CSession 实现文件，包含相关接口的具体实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Session.cpp
+ * @brief      CSession 实现文件，包含相关接口的具体实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* server/CSession.cpp */
+/**
+ * @brief  server/CSession.cpp。
+ */
 #include "server/core/Session.h"
 
 #include <cerrno>
@@ -17,21 +19,22 @@
 
 namespace dp {
 
-/*
- * 功能描述:  构造 CSession 对象，完成成员初始化与依赖注入。
- * 作者:      JaTin
- * param [in]   hFd              文件描述符，类型 int。
- * param [in]   uId              编号，类型 uint64_t。
- * param [in]   strPeer          输入数据，类型 std::string。
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      构造 CSession 对象，完成成员初始化与依赖注入。
+ * @param[in] hFd            文件描述符；类型 int。
+ * @param[in] uId            编号；类型 uint64_t。
+ * @param[in] strPeer        输入数据；类型 std::string。
+ * @return     构造/析构函数无返回值。
+ * @author     JaTin
  */
 CSession::CSession(int hFd, uint64_t uId, std::string strPeer)
     : m_nFd(hFd), id_(uId), m_strPeer(std::move(strPeer)), m_stLastActive(std::chrono::steady_clock::now()) {}
 
-/*
- * 功能描述:  析构 CSession 对象，释放运行期持有的全部资源。
- * 作者:      JaTin
- * return:    无返回值（构造函数或析构函数）。
+/**
+ * @brief      析构 CSession 对象，释放运行期持有的全部资源。
+ * @note       本函数无输入参数。
+ * @return     无返回值（构造函数或析构函数）。
+ * @author     JaTin
  */
 CSession::~CSession() {
     if (m_nFd >= 0) {
@@ -40,11 +43,11 @@ CSession::~CSession() {
     }
 }
 
-/*
- * 功能描述:  读取available。
- * 作者:      JaTin
- * param [out]  aFrames          协议帧集合，类型 std::vector<Frame_S>&。
- * return:    返回 ReadResult_EN 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      读取 available相关的数据并返回处理结果。
+ * @param[out] aFrames        协议帧集合；类型 std::vector<Frame_S>&。
+ * @return     返回 ReadResult_EN CSession:: 类型的处理结果。
+ * @author     JaTin
  */
 ReadResult_EN CSession::readAvailable(std::vector<Frame_S>& aFrames) {
     char chBuf[16 * 1024];
@@ -63,7 +66,9 @@ ReadResult_EN CSession::readAvailable(std::vector<Frame_S>& aFrames) {
                 if (stR == CFrameDecoder::Fatal) return ReadResult_EN::ProtocolError;
                 aFrames.push_back(std::move(strFrame));
             }
-            /* 边沿触发：必须读到 EAGAIN 为止 */
+            /**
+             * @brief  边沿触发：必须读到 EAGAIN 为止。
+             */
             continue;
         }
 
@@ -74,20 +79,21 @@ ReadResult_EN CSession::readAvailable(std::vector<Frame_S>& aFrames) {
     }
 }
 
-/*
- * 功能描述:  入队enqueue。
- * 作者:      JaTin
- * param [in]   strFrame         协议帧，类型 const std::string&。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      入队 enqueue。
+ * @param[in] strFrame       协议帧；类型 const std::string&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CSession::enqueue(const std::string& strFrame) {
     m_stOut.append(strFrame);
 }
 
-/*
- * 功能描述:  冲刷flush。
- * 作者:      JaTin
- * return:    返回 FlushResult_EN 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      冲刷 flush。
+ * @note       本函数无输入参数。
+ * @return     返回 FlushResult_EN CSession:: 类型的处理结果。
+ * @author     JaTin
  */
 FlushResult_EN CSession::flush() {
     const size_t uBefore = m_stOut.totalSent();
@@ -96,5 +102,7 @@ FlushResult_EN CSession::flush() {
     return enR;
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

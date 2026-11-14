@@ -1,12 +1,14 @@
-/*
- * 文件名:    Protocol.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  Protocol 实现文件，包含相关接口的具体实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       Protocol.cpp
+ * @brief      Protocol 实现文件，包含相关接口的具体实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
-/* common/Protocol.cpp */
+/**
+ * @brief  common/Protocol.cpp。
+ */
 #include "common/Protocol.h"
 
 #include <cstring>
@@ -15,11 +17,11 @@
 namespace dp {
 namespace {
 
-/*
- * 功能描述:  读取32be。
- * 作者:      JaTin
- * param [in]   uP               输入数据，类型 const unsigned char*。
- * return:    返回 inline uint32_t 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      按大端序读取 4 字节并组装为 32 位无符号整数。
+ * @param[in] uP             输入数据；类型 const unsigned char*。
+ * @return     返回 inline uint32_t 类型的处理结果。
+ * @author     JaTin
  */
 inline uint32_t readU32BE(const unsigned char* uP) {
     return (static_cast<uint32_t>(uP[0]) << 24) |
@@ -28,14 +30,16 @@ inline uint32_t readU32BE(const unsigned char* uP) {
             static_cast<uint32_t>(uP[3]);
 }
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  获取操作码 code 名称。
- * 作者:      JaTin
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * return:    成功返回对象指针；未找到或失败时返回 nullptr。
+/**
+ * @brief      获取操作码 code 名称。
+ * @param[in] enOp           协议操作码；类型 OpCode_EN。
+ * @return     成功返回对象指针；未找到或失败时返回 nullptr。
+ * @author     JaTin
  */
 const char* opCodeName(OpCode_EN enOp) {
     switch (enOp) {
@@ -63,12 +67,12 @@ const char* opCodeName(OpCode_EN enOp) {
     return "Unknown";
 }
 
-/*
- * 功能描述:  编码协议帧；实现上校验失败时抛出异常；校验不通过时抛出异常。
- * 作者:      JaTin
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * param [in]   strPayload       协议载荷内容，类型 const std::string&。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      编码协议帧；实现上校验失败时抛出异常；校验不通过时抛出异常。
+ * @param[in] enOp           协议操作码；类型 OpCode_EN。
+ * @param[in] strPayload     协议载荷内容；类型 const std::string&。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string encodeFrame(OpCode_EN enOp, const std::string& strPayload) {
     if (strPayload.size() > kMaxPayload) {
@@ -89,23 +93,23 @@ std::string encodeFrame(OpCode_EN enOp, const std::string& strPayload) {
     return stOut;
 }
 
-/*
- * 功能描述:  编码协议帧。
- * 作者:      JaTin
- * param [in]   enOp             协议操作码，类型 OpCode_EN。
- * param [in]   strPayload       协议载荷内容，类型 const Json&。
- * return:    返回构造好的字符串；无内容时返回空字符串。
+/**
+ * @brief      编码协议帧。
+ * @param[in] enOp           协议操作码；类型 OpCode_EN。
+ * @param[in] strPayload     协议载荷内容；类型 const Json&。
+ * @return     返回构造好的字符串；无内容时返回空字符串。
+ * @author     JaTin
  */
 std::string encodeFrame(OpCode_EN enOp, const Json& strPayload) {
     return encodeFrame(enOp, strPayload.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
-/*
- * 功能描述:  追加append。
- * 作者:      JaTin
- * param [in]   strData          原始字节数据，类型 const char*。
- * param [in]   uLen             输入数据，类型 size_t。
- * return:    无返回值；处理结果通过成员状态或信号对外体现。
+/**
+ * @brief      追加 append。
+ * @param[in] strData        原始字节数据；类型 const char*。
+ * @param[in] uLen           输入数据；类型 size_t。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
  */
 void CFrameDecoder::append(const char* strData, size_t uLen) {
     if (m_uReadPos > 0 && m_uReadPos == m_strBuf.size()) {
@@ -118,11 +122,11 @@ void CFrameDecoder::append(const char* strData, size_t uLen) {
     m_strBuf.append(strData, uLen);
 }
 
-/*
- * 功能描述:  从接收缓冲区中尝试解出一个完整协议帧。
- * 作者:      JaTin
- * param [out]  stOut            输入数据，类型 Frame_S&。
- * return:    返回 CFrameDecoder::Result_EN 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      从接收缓冲区中尝试解出一个完整协议帧。
+ * @param[out] stOut          输入数据；类型 Frame_S&。
+ * @return     返回 Result_EN CFrameDecoder:: 类型的处理结果。
+ * @author     JaTin
  */
 CFrameDecoder::Result_EN CFrameDecoder::next(Frame_S& stOut) {
     if (m_strBuf.size() - m_uReadPos < kHeaderSize) {
@@ -148,5 +152,7 @@ CFrameDecoder::Result_EN CFrameDecoder::next(Frame_S& stOut) {
     return Ok;
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

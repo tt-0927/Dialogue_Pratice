@@ -1,9 +1,9 @@
-/*
- * 文件名:    UserRepository.cpp
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  用户表访问的实现。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       UserRepository.cpp
+ * @brief      用户表访问的实现。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #include "server/core/UserRepository.h"
@@ -14,7 +14,9 @@
 namespace dp {
 namespace {
 
-/* 建表语句：字段含义见 README 的「用户库」一节。 */
+/**
+ * @brief  建表语句：字段含义见 README 的「用户库」一节。
+ */
 constexpr const char* kSchema = R"SQL(
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,40 +33,44 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname);
 )SQL";
 
-/* 查询列顺序必须与 readRow 一致。 */
+/**
+ * @brief  查询列顺序必须与 readRow 一致。
+ */
 constexpr const char* kSelectColumns =
     "id, username, nickname, age, description, enabled";
 
-/* namespace */
+/**
+ * @brief  namespace。
+ */
 }
 
-/*
- * 功能描述:  获取open。
- * 作者:      JaTin
- * param [in]   strPath          文件路径，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      获取 open相关的数据并返回处理结果。
+ * @param[in] strPath        文件路径；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::open(const std::string& strPath, std::string* pError) {
     return db_.open(strPath, pError);
 }
 
-/*
- * 功能描述:  确保schema。
- * 作者:      JaTin
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      确保 schema。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::ensureSchema(std::string* pError) {
     return db_.exec(kSchema, pError);
 }
 
-/*
- * 功能描述:  读取row；失败时返回 false。
- * 作者:      JaTin
- * param [out]  stStmt           输入数据，类型 CStatement&。
- * param [in]   pOut             输入数据，类型 UserRecord_S*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      读取 row；失败时返回 false。
+ * @param[out] stStmt         输入数据；类型 CStatement&。
+ * @param[in] pOut           输入数据；类型 UserRecord_S*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::readRow(CStatement& stStmt, UserRecord_S* pOut) {
     if (pOut == nullptr) return false;
@@ -77,17 +83,18 @@ bool CUserRepository::readRow(CStatement& stStmt, UserRecord_S* pOut) {
     return true;
 }
 
-/*
- * 功能描述:  查找by 昵称。
- * 作者:      JaTin
- * param [in]   strNickname      用户昵称，类型 const std::string&。
- * return:    返回 std::optional<UserRecord_S> 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      查找 by 昵称。
+ * @param[in] strNickname    用户昵称；类型 const std::string&。
+ * @return     返回 optional<UserRecord_S> CUserRepository:: 类型的处理结果。
+ * @author     JaTin
  */
 std::optional<UserRecord_S> CUserRepository::findByNickname(const std::string& strNickname) {
     if (!db_.isOpen()) return std::nullopt;
 
-    /* COLLATE NOCASE：用户填昵称时大小写随意，不该因此匹配不到账号。 */
-    /* 注意 SQLite 的 NOCASE 只对 ASCII 生效，中文昵称仍是精确匹配。 */
+    /**
+     * @brief  COLLATE NOCASE：用户填昵称时大小写随意，不该因此匹配不到账号。 注意 SQLite 的 NOCASE 只对 ASCII 生效，中文昵称仍是精确匹配。
+     */
     CStatement stStmt(db_, std::string("SELECT ") + kSelectColumns
                             + " FROM users WHERE nickname = ? COLLATE NOCASE"
                               " AND enabled = 1 LIMIT 1");
@@ -101,11 +108,11 @@ std::optional<UserRecord_S> CUserRepository::findByNickname(const std::string& s
     return stRecord;
 }
 
-/*
- * 功能描述:  查找byusername。
- * 作者:      JaTin
- * param [in]   strUsername      登录用户名，类型 const std::string&。
- * return:    返回 std::optional<UserRecord_S> 类型的处理结果，具体含义见功能描述。
+/**
+ * @brief      查找 byusername。
+ * @param[in] strUsername    登录用户名；类型 const std::string&。
+ * @return     返回 optional<UserRecord_S> CUserRepository:: 类型的处理结果。
+ * @author     JaTin
  */
 std::optional<UserRecord_S> CUserRepository::findByUsername(const std::string& strUsername) {
     if (!db_.isOpen()) return std::nullopt;
@@ -122,13 +129,13 @@ std::optional<UserRecord_S> CUserRepository::findByUsername(const std::string& s
     return stRecord;
 }
 
-/*
- * 功能描述:  校验credentials；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strUsername      登录用户名，类型 const std::string&。
- * param [in]   strPassword      登录密码，类型 const std::string&。
- * param [in]   pOut             输入数据，类型 UserRecord_S*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      校验 credentials；失败时返回 false。
+ * @param[in] strUsername    登录用户名；类型 const std::string&。
+ * @param[in] strPassword    登录密码；类型 const std::string&。
+ * @param[in] pOut           输入数据；类型 UserRecord_S*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::verifyCredentials(const std::string& strUsername,
                                        const std::string& strPassword,
@@ -140,7 +147,9 @@ bool CUserRepository::verifyCredentials(const std::string& strUsername,
     if (!stStmt.ok()) return false;
 
     stStmt.bindText(1, strUsername);
-    /* 账号不存在 */
+    /**
+     * @brief  账号不存在。
+     */
     if (!stStmt.step()) return false;
 
     UserRecord_S stRecord;
@@ -155,16 +164,16 @@ bool CUserRepository::verifyCredentials(const std::string& strUsername,
     return true;
 }
 
-/*
- * 功能描述:  创建用户；失败时返回 false。
- * 作者:      JaTin
- * param [in]   strUsername      登录用户名，类型 const std::string&。
- * param [in]   strPassword      登录密码，类型 const std::string&。
- * param [in]   strNickname      用户昵称，类型 const std::string&。
- * param [in]   nAge             年龄（0 到 150），类型 int。
- * param [in]   strDescription   输入数据，类型 const std::string&。
- * param [in]   pError           错误信息，类型 std::string*。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      创建用户；失败时返回 false。
+ * @param[in] strUsername    登录用户名；类型 const std::string&。
+ * @param[in] strPassword    登录密码；类型 const std::string&。
+ * @param[in] strNickname    用户昵称；类型 const std::string&。
+ * @param[in] nAge           年龄（0 到 150）；类型 int。
+ * @param[in] strDescription 输入数据；类型 const std::string&。
+ * @param[in] pError         错误信息；类型 std::string*。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::createUser(const std::string& strUsername, const std::string& strPassword,
                                 const std::string& strNickname, int nAge,
@@ -201,11 +210,11 @@ bool CUserRepository::createUser(const std::string& strUsername, const std::stri
     return true;
 }
 
-/*
- * 功能描述:  更新访问时间login；失败时返回 false。
- * 作者:      JaTin
- * param [in]   lUserId          用户编号，类型 int64_t。
- * return:    成功返回 true；参数非法或执行失败时返回 false。
+/**
+ * @brief      更新访问时间 login；失败时返回 false。
+ * @param[in] lUserId        用户编号；类型 int64_t。
+ * @return     成功返回 true；参数非法或执行失败时返回 false。
+ * @author     JaTin
  */
 bool CUserRepository::touchLogin(int64_t lUserId) {
     if (!db_.isOpen()) return false;
@@ -219,10 +228,11 @@ bool CUserRepository::touchLogin(int64_t lUserId) {
     return !stStmt.failed();
 }
 
-/*
- * 功能描述:  统计count。
- * 作者:      JaTin
- * return:    返回计数或长度；无有效数据时返回 0。
+/**
+ * @brief      统计 count。
+ * @note       本函数无输入参数。
+ * @return     返回计数或长度；无有效数据时返回 0。
+ * @author     JaTin
  */
 size_t CUserRepository::count() {
     if (!db_.isOpen()) return 0;
@@ -232,5 +242,7 @@ size_t CUserRepository::count() {
     return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

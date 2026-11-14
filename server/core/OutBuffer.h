@@ -1,9 +1,9 @@
-/*
- * 文件名:    OutBuffer.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  非阻塞 socket 的发送缓冲。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       OutBuffer.h
+ * @brief      非阻塞 socket 的发送缓冲。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #pragma once
@@ -17,21 +17,28 @@
 namespace dp {
 
 /**
- * @brief 一次写出尝试的结果。
+ * @brief   一次写出尝试的结果。
+ * @author  JaTin
  */
 enum class FlushResult_EN {
-    /* < 缓冲已全部写出 */
+    /**
+     * @brief  缓冲已全部写出
+     */
     Done,
-    /* < 内核发送缓冲满，需等 EPOLLOUT 再写 */
+    /**
+     * @brief  内核发送缓冲满，需等 EPOLLOUT 再写
+     */
     Blocked,
-    /* < 连接已不可用，应关闭会话 */
+    /**
+     * @brief  连接已不可用，应关闭会话
+     */
     Error,
 };
 
 /**
- * @brief 发送缓冲。
- *
+ * @brief   发送缓冲。
  * @details 只在事件循环线程使用，无需加锁。
+ * @author  JaTin
  */
 class COutBuffer {
 public:
@@ -51,13 +58,19 @@ public:
         m_strBuf.append(data);
     }
 
-    /* 尚未写出的字节数。 */
+    /**
+     * @brief  尚未写出的字节数。
+     */
     size_t pending() const { return m_strBuf.size() - m_uSent; }
 
-    /* 缓冲是否已空。 */
+    /**
+     * @brief  缓冲是否已空。
+     */
     bool empty() const { return pending() == 0; }
 
-    /* 累计写出的字节数（统计用）。 */
+    /**
+     * @brief  累计写出的字节数（统计用）。
+     */
     size_t totalSent() const { return m_uTotalSent; }
 
     /**
@@ -70,6 +83,10 @@ public:
      */
     FlushResult_EN flush(int fd) {
         while (m_uSent < m_strBuf.size()) {
+            /**
+             * @brief  n。 初值 = ::send(fd, m_strBuf.data() + m_uSent, m_strBuf.size() - m_uSent, MSG_NOSIGNAL)。
+             * @note   类型 ssize_t；类/结构体成员变量。
+             */
             const ssize_t n = ::send(fd, m_strBuf.data() + m_uSent, m_strBuf.size() - m_uSent, MSG_NOSIGNAL);
             if (n > 0) {
                 m_uSent += static_cast<size_t>(n);
@@ -81,7 +98,9 @@ public:
                 if (errno == EAGAIN || errno == EWOULDBLOCK) return FlushResult_EN::Blocked;
                 return FlushResult_EN::Error;
             }
-            /* n == 0 视为异常 */
+            /**
+             * @brief  n == 0 视为异常。
+             */
             return FlushResult_EN::Error;
         }
         m_strBuf.clear();
@@ -90,13 +109,24 @@ public:
     }
 
 private:
-    /* < 待发数据（含已发部分，按 sent_ 偏移） */
+    /**
+     * @brief  待发数据（含已发部分，按 sent_ 偏移）
+     * @note   类型 std::string；类/结构体成员变量。
+     */
     std::string m_strBuf;
-    /* < 已写出的字节数 */
+    /**
+     * @brief  已写出的字节数
+     * @note   类型 size_t；类/结构体成员变量。
+     */
     size_t      m_uSent = 0;
-    /* < 累计写出字节数（统计用） */
+    /**
+     * @brief  累计写出字节数（统计用）
+     * @note   类型 size_t；类/结构体成员变量。
+     */
     size_t      m_uTotalSent = 0;
 };
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }

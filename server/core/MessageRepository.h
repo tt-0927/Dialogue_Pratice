@@ -1,9 +1,9 @@
-/*
- * 文件名:    MessageRepository.h
- * 创建日期:  2026-11-13
- * 作者:      JaTin
- * 功能描述:  聊天记录的写入与查询。
- * 修改记录:  2026-11-13 JaTin 按 C/C++ 编码规范整改注释与命名。
+/**
+ * @file       MessageRepository.h
+ * @brief      聊天记录的写入与查询。
+ * @author     JaTin
+ * @date       2026-11-13
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
  */
 
 #pragma once
@@ -18,7 +18,8 @@
 namespace dp {
 
 /**
- * @brief 聊天记录表的访问对象。
+ * @brief   聊天记录表的访问对象。
+ * @author  JaTin
  */
 class CMessageRepository {
 public:
@@ -27,21 +28,25 @@ public:
     CMessageRepository& operator=(const CMessageRepository&) = delete;
 
     /**
-     * @brief 打开聊天记录数据库。
-     * @param path  文件路径（不存在则创建）。
-     * @param error 失败原因。
-     * @retval true 打开成功。
+     * @brief      打开聊天记录数据库。
+     * @param[in] path           文件路径（不存在则创建）；类型 const std::string&。
+     * @param[in] error          失败原因；类型 std::string*。
+     * @return     true 打开成功。
+     * @author     JaTin
      */
     bool open(const std::string& path, std::string* error);
 
     /**
-     * @brief 建表与索引（幂等）。
-     * @param error 失败原因。
-     * @retval true 表结构已就绪。
+     * @brief      建表与索引（幂等）。
+     * @param[in] error          失败原因；类型 std::string*。
+     * @return     true 表结构已就绪。
+     * @author     JaTin
      */
     bool ensureSchema(std::string* error);
 
-    /* 是否已打开。 */
+    /**
+     * @brief  是否已打开。
+     */
     bool isOpen() const { return db_.isOpen(); }
 
     /**
@@ -58,14 +63,20 @@ public:
                 std::string* error);
 
     /**
-     * @brief 读取某房间最近的若干条消息。
-     * @param roomId 房间号。
-     * @param limit  最多返回多少条。
-     * @retval 按 seq 正序排列；`from` 字段回填为发送者的连接 id（与内存缓冲一致）。
+     * @brief      读取某房间最近的若干条消息。
+     * @param[in] roomId         房间号；类型 const std::string&。
+     * @param[in] limit          最多返回多少条；类型 int。
+     * @return     按 seq 正序排列；`from` 字段回填为发送者的连接 id（与内存缓冲一致）。
+     * @author     JaTin
      */
     std::vector<HistoryEntry_S> loadRecent(const std::string& roomId, int limit);
 
-    /* 记录总数。 */
+    /**
+     * @brief      记录总数。
+     * @note       本函数无输入参数。
+     * @return     返回计数或长度；无有效数据时返回 0。
+     * @author     JaTin
+     */
     size_t count();
 
     /**
@@ -84,16 +95,22 @@ public:
                         std::string* error);
 
     /**
-     * @brief 统计超过保留期的记录数（不删除）。
-     * @param retentionDays 保留天数。
-     * @retval 到期条数。
+     * @brief      统计超过保留期的记录数（不删除）。
+     * @param[in] retentionDays  保留天数；类型 int。
+     * @return     到期条数。
+     * @author     JaTin
      */
     size_t countExpired(int retentionDays);
 
 private:
-    /* < messages.db 连接 */
+    /**
+     * @brief  messages.db 连接
+     * @note   类型 CDatabase；类/结构体成员变量。
+     */
     CDatabase db_;
 };
 
-/* namespace dp */
+/**
+ * @brief  namespace dp。
+ */
 }
