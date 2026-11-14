@@ -15,43 +15,43 @@ namespace dp {
 /* ---------------------------------------------------------------- CDatabase */
 
 /*
- * 功能描述:  执行 CDatabase 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  析构 CDatabase 对象，释放运行期持有的全部资源。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    无返回值（构造函数或析构函数）。
  */
 CDatabase::~CDatabase() {
     close();
 }
 
 /*
- * 功能描述:  执行 open 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取open；失败时返回 false。
  * 作者:      JaTin
- * param [in]  path  参数。
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strPath          文件路径，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CDatabase::open(const std::string& path, std::string* error) {
+bool CDatabase::open(const std::string& strPath, std::string* pError) {
     close();
 
-    const int rc = sqlite3_open_v2(path.c_str(), &db_,
+    const int nRc = sqlite3_open_v2(strPath.c_str(), &db_,
                                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
                                        | SQLITE_OPEN_FULLMUTEX,
                                    nullptr);
-    if (rc != SQLITE_OK) {
-        if (error != nullptr) {
-            *error = db_ != nullptr ? sqlite3_errmsg(db_) : "sqlite3_open_v2 failed";
+    if (nRc != SQLITE_OK) {
+        if (pError != nullptr) {
+            *pError = db_ != nullptr ? sqlite3_errmsg(db_) : "sqlite3_open_v2 failed";
         }
         close();
         return false;
     }
 
     /* WAL：写入不阻塞读；busy_timeout 防止偶发的多进程访问直接失败。 */
-    std::string pragmaError;
-    if (!exec("PRAGMA journal_mode=WAL;", &pragmaError)
-        || !exec("PRAGMA synchronous=NORMAL;", &pragmaError)
-        || !exec("PRAGMA foreign_keys=ON;", &pragmaError)
-        || !exec("PRAGMA busy_timeout=3000;", &pragmaError)) {
-        if (error != nullptr) *error = pragmaError;
+    std::string strPragmaError;
+    if (!exec("PRAGMA journal_mode=WAL;", &strPragmaError)
+        || !exec("PRAGMA synchronous=NORMAL;", &strPragmaError)
+        || !exec("PRAGMA foreign_keys=ON;", &strPragmaError)
+        || !exec("PRAGMA busy_timeout=3000;", &strPragmaError)) {
+        if (pError != nullptr) *pError = strPragmaError;
         close();
         return false;
     }
@@ -59,9 +59,9 @@ bool CDatabase::open(const std::string& path, std::string* error) {
 }
 
 /*
- * 功能描述:  执行 close 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  关闭close。
  * 作者:      JaTin
- * return:    void
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
 void CDatabase::close() {
     if (db_ == nullptr) return;
@@ -70,35 +70,35 @@ void CDatabase::close() {
 }
 
 /*
- * 功能描述:  执行 exec 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  执行exec；实现上通过 SQLite 完成持久化读写；失败时返回 false。
  * 作者:      JaTin
- * param [in]  sql  参数。
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strSql           输入数据，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CDatabase::exec(const std::string& sql, std::string* error) {
+bool CDatabase::exec(const std::string& strSql, std::string* pError) {
     if (db_ == nullptr) {
-        if (error != nullptr) *error = "database not open";
+        if (pError != nullptr) *pError = "database not open";
         return false;
     }
 
-    char* message = nullptr;
-    const int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &message);
-    if (rc != SQLITE_OK) {
-        if (error != nullptr) {
-            *error = message != nullptr ? message : "sqlite3_exec failed";
+    char* strMessage = nullptr;
+    const int nRc = sqlite3_exec(db_, strSql.c_str(), nullptr, nullptr, &strMessage);
+    if (nRc != SQLITE_OK) {
+        if (pError != nullptr) {
+            *pError = strMessage != nullptr ? strMessage : "sqlite3_exec failed";
         }
-        if (message != nullptr) sqlite3_free(message);
+        if (strMessage != nullptr) sqlite3_free(strMessage);
         return false;
     }
-    if (message != nullptr) sqlite3_free(message);
+    if (strMessage != nullptr) sqlite3_free(strMessage);
     return true;
 }
 
 /*
- * 功能描述:  执行 lastError 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取last 错误。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
 std::string CDatabase::lastError() const {
     if (db_ == nullptr) return "database not open";
@@ -108,82 +108,82 @@ std::string CDatabase::lastError() const {
 /* ---------------------------------------------------------------- CStatement */
 
 /*
- * 功能描述:  执行 CStatement 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  构造 CStatement 对象，完成成员初始化与依赖注入。
  * 作者:      JaTin
- * param [out]  db  参数。
- * param [in]  sql  参数。
- * return:    返回值，含义见功能描述。
+ * param [out]  stDb             数据库，类型 CDatabase&。
+ * param [in]   strSql           输入数据，类型 const std::string&。
+ * return:    无返回值（构造函数或析构函数）。
  */
-CStatement::CStatement(CDatabase& db, const std::string& sql) {
-    if (db.handle() == nullptr) {
+CStatement::CStatement(CDatabase& stDb, const std::string& strSql) {
+    if (stDb.handle() == nullptr) {
         m_strError = "database not open";
         return;
     }
 
-    const int rc = sqlite3_prepare_v2(db.handle(), sql.c_str(),
-                                      static_cast<int>(sql.size()), &m_pStmt, nullptr);
-    if (rc != SQLITE_OK) {
-        m_strError = sqlite3_errmsg(db.handle());
+    const int nRc = sqlite3_prepare_v2(stDb.handle(), strSql.c_str(),
+                                      static_cast<int>(strSql.size()), &m_pStmt, nullptr);
+    if (nRc != SQLITE_OK) {
+        m_strError = sqlite3_errmsg(stDb.handle());
         m_pStmt = nullptr;
     }
 }
 
 /*
- * 功能描述:  执行 CStatement 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  析构 CStatement 对象，释放运行期持有的全部资源。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    无返回值（构造函数或析构函数）。
  */
 CStatement::~CStatement() {
     if (m_pStmt != nullptr) sqlite3_finalize(m_pStmt);
 }
 
 /*
- * 功能描述:  执行 bindText 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  绑定文本。
  * 作者:      JaTin
- * param [in]  index  参数。
- * param [in]  value  参数。
- * return:    void
+ * param [in]   nIndex           位置索引，类型 int。
+ * param [in]   strValue         待设置的数值，类型 const std::string&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CStatement::bindText(int index, const std::string& value) {
+void CStatement::bindText(int nIndex, const std::string& strValue) {
     if (m_pStmt == nullptr) return;
     /* SQLITE_TRANSIENT：让 sqlite 自己拷贝，调用方不必保证生命周期 */
-    sqlite3_bind_text(m_pStmt, index, value.c_str(), static_cast<int>(value.size()),
+    sqlite3_bind_text(m_pStmt, nIndex, strValue.c_str(), static_cast<int>(strValue.size()),
                       SQLITE_TRANSIENT);
 }
 
 /*
- * 功能描述:  执行 bindInt64 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  绑定int64。
  * 作者:      JaTin
- * param [in]  index  参数。
- * param [in]  value  参数。
- * return:    void
+ * param [in]   nIndex           位置索引，类型 int。
+ * param [in]   strValue         待设置的数值，类型 int64_t。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CStatement::bindInt64(int index, int64_t value) {
+void CStatement::bindInt64(int nIndex, int64_t strValue) {
     if (m_pStmt == nullptr) return;
-    sqlite3_bind_int64(m_pStmt, index, value);
+    sqlite3_bind_int64(m_pStmt, nIndex, strValue);
 }
 
 /*
- * 功能描述:  执行 bindBlob 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  绑定blob。
  * 作者:      JaTin
- * param [in]  index  参数。
- * param [in]  value  参数。
- * return:    void
+ * param [in]   nIndex           位置索引，类型 int。
+ * param [in]   strValue         待设置的数值，类型 const std::string&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CStatement::bindBlob(int index, const std::string& value) {
+void CStatement::bindBlob(int nIndex, const std::string& strValue) {
     if (m_pStmt == nullptr) return;
-    if (value.empty()) {
-        sqlite3_bind_zeroblob(m_pStmt, index, 0);
+    if (strValue.empty()) {
+        sqlite3_bind_zeroblob(m_pStmt, nIndex, 0);
         return;
     }
-    sqlite3_bind_blob(m_pStmt, index, value.data(), static_cast<int>(value.size()),
+    sqlite3_bind_blob(m_pStmt, nIndex, strValue.data(), static_cast<int>(strValue.size()),
                       SQLITE_TRANSIENT);
 }
 
 /*
- * 功能描述:  执行 step 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取step；实现上通过 SQLite 完成持久化读写；失败时返回 false。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
 bool CStatement::step() {
     if (m_pStmt == nullptr) {
@@ -191,69 +191,69 @@ bool CStatement::step() {
         return false;
     }
 
-    const int rc = sqlite3_step(m_pStmt);
-    if (rc == SQLITE_ROW) return true;
-    if (rc == SQLITE_DONE) return false;
+    const int nRc = sqlite3_step(m_pStmt);
+    if (nRc == SQLITE_ROW) return true;
+    if (nRc == SQLITE_DONE) return false;
 
     m_nFailed = true;
-    m_strError = sqlite3_errstr(rc);
+    m_strError = sqlite3_errstr(nRc);
     return false;
 }
 
 /*
- * 功能描述:  执行 columnInt64 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取columnint64。
  * 作者:      JaTin
- * param [in]  column  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nColumn          输入数据，类型 int。
+ * return:    返回计数或长度；无有效数据时返回 0。
  */
-int64_t CStatement::columnInt64(int column) const {
+int64_t CStatement::columnInt64(int nColumn) const {
     if (m_pStmt == nullptr) return 0;
-    return sqlite3_column_int64(m_pStmt, column);
+    return sqlite3_column_int64(m_pStmt, nColumn);
 }
 
 /*
- * 功能描述:  执行 columnText 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取column 文本。
  * 作者:      JaTin
- * param [in]  column  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nColumn          输入数据，类型 int。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string CStatement::columnText(int column) const {
+std::string CStatement::columnText(int nColumn) const {
     if (m_pStmt == nullptr) return std::string();
-    const unsigned char* text = sqlite3_column_text(m_pStmt, column);
+    const unsigned char* text = sqlite3_column_text(m_pStmt, nColumn);
     if (text == nullptr) return std::string();
-    const int bytes = sqlite3_column_bytes(m_pStmt, column);
-    return std::string(reinterpret_cast<const char*>(text), static_cast<size_t>(bytes));
+    const int nBytes = sqlite3_column_bytes(m_pStmt, nColumn);
+    return std::string(reinterpret_cast<const char*>(text), static_cast<size_t>(nBytes));
 }
 
 /*
- * 功能描述:  执行 columnBlob 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取columnblob。
  * 作者:      JaTin
- * param [in]  column  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nColumn          输入数据，类型 int。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string CStatement::columnBlob(int column) const {
+std::string CStatement::columnBlob(int nColumn) const {
     if (m_pStmt == nullptr) return std::string();
-    const void* data = sqlite3_column_blob(m_pStmt, column);
-    if (data == nullptr) return std::string();
-    const int bytes = sqlite3_column_bytes(m_pStmt, column);
-    return std::string(static_cast<const char*>(data), static_cast<size_t>(bytes));
+    const void* vData = sqlite3_column_blob(m_pStmt, nColumn);
+    if (vData == nullptr) return std::string();
+    const int nBytes = sqlite3_column_bytes(m_pStmt, nColumn);
+    return std::string(static_cast<const char*>(vData), static_cast<size_t>(nBytes));
 }
 
 /*
- * 功能描述:  执行 columnIsNull 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  判断columnnull。
  * 作者:      JaTin
- * param [in]  column  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nColumn          输入数据，类型 int。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CStatement::columnIsNull(int column) const {
+bool CStatement::columnIsNull(int nColumn) const {
     if (m_pStmt == nullptr) return true;
-    return sqlite3_column_type(m_pStmt, column) == SQLITE_NULL;
+    return sqlite3_column_type(m_pStmt, nColumn) == SQLITE_NULL;
 }
 
 /*
- * 功能描述:  执行 reset 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  重置reset。
  * 作者:      JaTin
- * return:    void
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
 void CStatement::reset() {
     if (m_pStmt == nullptr) return;

@@ -22,347 +22,346 @@ namespace {
  * @param s 会话。
  * @retval 含 userId / name / age / desc 的 JSON 对象。
  */
-Json profileJson(const CSession& s) {
-    Json p = Json::object();
-    p["userId"] = s.id();
-    p["name"] = s.name();
-    p["age"] = s.age();
-    p["desc"] = s.desc();
-    return p;
+Json profileJson(const CSession& stS) {
+    Json stP = Json::object();
+    stP["userId"] = stS.id();
+    stP["name"] = stS.name();
+    stP["age"] = stS.age();
+    stP["desc"] = stS.desc();
+    return stP;
 }
 
 /* namespace */
 }
 
 /*
- * 功能描述:  执行 opcodes 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  返回本业务服务所处理的协议操作码列表。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回 std::vector<OpCode_EN> 类型的处理结果，具体含义见功能描述。
  */
 std::vector<OpCode_EN> CUserService::opcodes() const {
     return {OpCode_EN::Login, OpCode_EN::Register, OpCode_EN::UpdateProfile, OpCode_EN::Ping};
 }
 
 /*
- * 功能描述:  执行 handle 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  按操作码分发并处理一条业务请求。
  * 作者:      JaTin
- * param [out]  session  参数。
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    void
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   stPayload        协议载荷内容，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CUserService::handle(CSession& session, OpCode_EN op, const Json& payload) {
-    switch (op) {
-        case OpCode_EN::Login:         onLogin(session, payload);         break;
-        case OpCode_EN::Register:      onRegister(session, payload);      break;
-        case OpCode_EN::UpdateProfile: onUpdateProfile(session, payload); break;
-        case OpCode_EN::Ping:          onPing(session, payload);          break;
+void CUserService::handle(CSession& stSession, OpCode_EN enOp, const Json& stPayload) {
+    switch (enOp) {
+        case OpCode_EN::Login:         onLogin(stSession, stPayload);         break;
+        case OpCode_EN::Register:      onRegister(stSession, stPayload);      break;
+        case OpCode_EN::UpdateProfile: onUpdateProfile(stSession, stPayload); break;
+        case OpCode_EN::Ping:          onPing(stSession, stPayload);          break;
         default:                                                       break;
     }
 }
 
 /*
- * 功能描述:  执行 onLogin 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  完成登录on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   stJ              输入数据，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CUserService::onLogin(CSession& s, const Json& j) {
-    if (s.loggedIn()) {
-        m_stCtx.sendError(s, "already_logged_in", "session already logged in");
+void CUserService::onLogin(CSession& stS, const Json& stJ) {
+    if (stS.loggedIn()) {
+        m_stCtx.sendError(stS, "already_logged_in", "session already logged in");
         return;
     }
-    if (!j.contains("name") || !j["name"].is_string()) {
-        m_stCtx.sendError(s, "bad_payload", "field 'name' (string) is required");
+    if (!stJ.contains("name") || !stJ["name"].is_string()) {
+        m_stCtx.sendError(stS, "bad_payload", "field 'name' (string) is required");
         return;
     }
-    const std::string name = trim(j["name"].get<std::string>());
-    if (!validName(name)) {
-        m_stCtx.sendError(s, "bad_name", "name must be 1..24 bytes without control chars");
+    const std::string strName = trim(stJ["name"].get<std::string>());
+    if (!validName(strName)) {
+        m_stCtx.sendError(stS, "bad_name", "name must be 1..24 bytes without control chars");
         return;
     }
 
-    int age = 0;
-    if (j.contains("age") && !j["age"].is_null()) {
-        if (!readAge(j, age)) {
-            m_stCtx.sendError(s, "bad_age", "age must be an integer in 0..150");
+    int nAge = 0;
+    if (stJ.contains("age") && !stJ["age"].is_null()) {
+        if (!readAge(stJ, nAge)) {
+            m_stCtx.sendError(stS, "bad_age", "age must be an integer in 0..150");
             return;
         }
     }
 
-    std::string desc;
-    if (j.contains("desc") && !j["desc"].is_null()) {
-        if (!j["desc"].is_string()) {
-            m_stCtx.sendError(s, "bad_payload", "field 'desc' must be a string");
+    std::string strDesc;
+    if (stJ.contains("desc") && !stJ["desc"].is_null()) {
+        if (!stJ["desc"].is_string()) {
+            m_stCtx.sendError(stS, "bad_payload", "field 'desc' must be a string");
             return;
         }
-        desc = trim(j["desc"].get<std::string>());
-        if (!validDesc(desc)) {
-            m_stCtx.sendError(s, "bad_desc", "desc must be <= 200 bytes");
+        strDesc = trim(stJ["desc"].get<std::string>());
+        if (!validDesc(strDesc)) {
+            m_stCtx.sendError(stS, "bad_desc", "desc must be <= 200 bytes");
             return;
         }
     }
 
     /* 客户端带了 password 就走账号校验；没带则走兼容路径（昵称匹配或匿名）。 */
-    const bool hasPassword = j.contains("password") && j["password"].is_string()
-                             && !j["password"].get<std::string>().empty();
+    const bool nHasPassword = stJ.contains("password") && stJ["password"].is_string()
+                             && !stJ["password"].get<std::string>().empty();
 
-    int64_t accountId = 0;
-    std::optional<UserRecord_S> user;
+    int64_t lAccountId = 0;
+    std::optional<UserRecord_S> stUser;
 
-    if (hasPassword) {
-        UserRecord_S verified;
-        if (!m_stCtx.users().verifyCredentials(name, j["password"].get<std::string>(),
-                                            &verified)) {
+    if (nHasPassword) {
+        UserRecord_S stVerified;
+        if (!m_stCtx.users().verifyCredentials(strName, stJ["password"].get<std::string>(),
+                                            &stVerified)) {
             /* 统一提示，不区分「账号不存在」和「密码错误」，避免账号枚举 */
             LOG_WARN("session#%llu 登录失败（账号 '%s'）",
-                     static_cast<unsigned long long>(s.id()), name.c_str());
-            m_stCtx.sendError(s, "auth_failed", "账号或密码错误");
+                     static_cast<unsigned long long>(stS.id()), strName.c_str());
+            m_stCtx.sendError(stS, "auth_failed", "账号或密码错误");
             return;
         }
-        user = verified;
+        stUser = stVerified;
     } else if (m_stCtx.config().requireAuth) {
-        m_stCtx.sendError(s, "auth_required", "本服务器要求账号密码登录");
+        m_stCtx.sendError(stS, "auth_required", "本服务器要求账号密码登录");
         return;
     } else {
         /* 兼容模式：先按登录名精确匹配，再按昵称忽略大小写匹配 */
-        user = m_stCtx.users().findByUsername(name);
-        if (!user) user = m_stCtx.users().findByNickname(name);
+        stUser = m_stCtx.users().findByUsername(strName);
+        if (!stUser) stUser = m_stCtx.users().findByNickname(strName);
     }
 
-    if (user) {
-        accountId = user->id;
-        s.setName(user->nickname);
-        s.setAge(user->age);
-        s.setDesc(user->description);
-        m_stCtx.users().touchLogin(user->id);
+    if (stUser) {
+        lAccountId = stUser->id;
+        stS.setName(stUser->nickname);
+        stS.setAge(stUser->age);
+        stS.setDesc(stUser->description);
+        m_stCtx.users().touchLogin(stUser->id);
         LOG_INFO("session#%llu 匹配到账号 #%lld（%s，%s）",
-                 static_cast<unsigned long long>(s.id()),
-                 static_cast<long long>(user->id), user->username.c_str(),
-                 hasPassword ? "密码校验" : "昵称匹配");
+                 static_cast<unsigned long long>(stS.id()),
+                 static_cast<long long>(stUser->id), stUser->username.c_str(),
+                 nHasPassword ? "密码校验" : "昵称匹配");
     } else {
-        s.setName(name);
-        s.setAge(age);
-        s.setDesc(desc);
+        stS.setName(strName);
+        stS.setAge(nAge);
+        stS.setDesc(strDesc);
         LOG_INFO("session#%llu 匿名登录（昵称 '%s' 不在用户库）",
-                 static_cast<unsigned long long>(s.id()), name.c_str());
+                 static_cast<unsigned long long>(stS.id()), strName.c_str());
     }
-    s.setAccountId(accountId);
-    s.setState(SessionState_EN::LoggedIn);
+    stS.setAccountId(lAccountId);
+    stS.setState(SessionState_EN::LoggedIn);
 
-    Json resp = profileJson(s);
-    resp["ok"] = true;
-    resp["serverTime"] = nowMs();
+    Json stResp = profileJson(stS);
+    stResp["ok"] = true;
+    stResp["serverTime"] = nowMs();
     /* 0 表示匿名；客户端可用于区分身份来源 */
-    resp["accountId"] = accountId;
+    stResp["accountId"] = lAccountId;
 
     /* 服务端统一配置：客户端不必各自维护 llm.json。 */
     /* 结构原样透传（由客户端的 AppConfig 解析），服务端不关心字段含义。 */
     if (m_stCtx.hasLlmConfig()) {
-        resp["llmConfig"] = m_stCtx.llmConfig();
+        stResp["llmConfig"] = m_stCtx.llmConfig();
     }
 
-    m_stCtx.sendTo(s, OpCode_EN::LoginResp, resp);
+    m_stCtx.sendTo(stS, OpCode_EN::LoginResp, stResp);
 
-    Json welcome = Json::object();
-    welcome["event"] = "welcome";
-    welcome["text"] = "欢迎 " + name + "，请用房间号加入房间";
-    welcome["ts"] = nowMs();
-    m_stCtx.sendTo(s, OpCode_EN::SystemMsg, welcome);
+    Json stWelcome = Json::object();
+    stWelcome["event"] = "welcome";
+    stWelcome["text"] = "欢迎 " + strName + "，请用房间号加入房间";
+    stWelcome["ts"] = nowMs();
+    m_stCtx.sendTo(stS, OpCode_EN::SystemMsg, stWelcome);
 
     LOG_INFO("session#%llu login as '%s'",
-             static_cast<unsigned long long>(s.id()), name.c_str());
+             static_cast<unsigned long long>(stS.id()), strName.c_str());
 }
 
 /*
- * 功能描述:  执行 onRegister 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  注册on；实现上异常路径记录错误或警告日志、向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   stJ              输入数据，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CUserService::onRegister(CSession& s, const Json& j) {
+void CUserService::onRegister(CSession& stS, const Json& stJ) {
     /* 单连接注册次数上限：防止有人写个脚本批量刷号 */
-    constexpr int kMaxRegisterPerSession = 3;
+    constexpr int nKMaxRegisterPerSession = 3;
 
     if (!m_stCtx.config().allowRegistration) {
-        m_stCtx.sendError(s, "register_disabled", "本服务器不开放自助注册");
+        m_stCtx.sendError(stS, "register_disabled", "本服务器不开放自助注册");
         return;
     }
-    if (s.loggedIn()) {
-        m_stCtx.sendError(s, "already_logged_in", "已登录，无需注册");
+    if (stS.loggedIn()) {
+        m_stCtx.sendError(stS, "already_logged_in", "已登录，无需注册");
         return;
     }
-    if (s.registerAttempts() >= kMaxRegisterPerSession) {
-        m_stCtx.sendError(s, "too_many_registrations", "本连接注册次数过多，请重新连接");
+    if (stS.registerAttempts() >= nKMaxRegisterPerSession) {
+        m_stCtx.sendError(stS, "too_many_registrations", "本连接注册次数过多，请重新连接");
         return;
     }
-    s.bumpRegisterAttempts();
+    stS.bumpRegisterAttempts();
 
     /* ---- 必填：登录名 ---- */
-    if (!j.contains("username") || !j["username"].is_string()) {
-        m_stCtx.sendError(s, "bad_payload", "field 'username' (string) is required");
+    if (!stJ.contains("username") || !stJ["username"].is_string()) {
+        m_stCtx.sendError(stS, "bad_payload", "field 'username' (string) is required");
         return;
     }
-    const std::string username = trim(j["username"].get<std::string>());
-    if (!validUsername(username)) {
-        m_stCtx.sendError(s, "bad_username",
+    const std::string strUsername = trim(stJ["username"].get<std::string>());
+    if (!validUsername(strUsername)) {
+        m_stCtx.sendError(stS, "bad_username",
                        "登录名需为 3..24 位的字母、数字、下划线或短横线");
         return;
     }
 
     /* ---- 必填：密码 ---- */
-    if (!j.contains("password") || !j["password"].is_string()) {
-        m_stCtx.sendError(s, "bad_payload", "field 'password' (string) is required");
+    if (!stJ.contains("password") || !stJ["password"].is_string()) {
+        m_stCtx.sendError(stS, "bad_payload", "field 'password' (string) is required");
         return;
     }
-    const std::string password = j["password"].get<std::string>();
-    if (!validPassword(password)) {
-        m_stCtx.sendError(s, "weak_password", "密码长度需为 6..64 位");
+    const std::string strPassword = stJ["password"].get<std::string>();
+    if (!validPassword(strPassword)) {
+        m_stCtx.sendError(stS, "weak_password", "密码长度需为 6..64 位");
         return;
     }
 
     /* ---- 可选：昵称（缺省用登录名）---- */
-    std::string nickname = username;
-    if (j.contains("nickname") && j["nickname"].is_string()) {
-        nickname = trim(j["nickname"].get<std::string>());
-        if (!validName(nickname)) {
-            m_stCtx.sendError(s, "bad_name", "昵称需为 1..24 字节且不含控制字符");
+    std::string strNickname = strUsername;
+    if (stJ.contains("nickname") && stJ["nickname"].is_string()) {
+        strNickname = trim(stJ["nickname"].get<std::string>());
+        if (!validName(strNickname)) {
+            m_stCtx.sendError(stS, "bad_name", "昵称需为 1..24 字节且不含控制字符");
             return;
         }
     }
 
     /* ---- 可选：年龄 ---- */
-    int age = 0;
-    if (j.contains("age") && !j["age"].is_null() && !readAge(j, age)) {
-        m_stCtx.sendError(s, "bad_age", "age must be an integer in 0..150");
+    int nAge = 0;
+    if (stJ.contains("age") && !stJ["age"].is_null() && !readAge(stJ, nAge)) {
+        m_stCtx.sendError(stS, "bad_age", "age must be an integer in 0..150");
         return;
     }
 
     /* ---- 可选：简介 ---- */
-    std::string desc;
-    if (j.contains("desc") && j["desc"].is_string()) {
-        desc = trim(j["desc"].get<std::string>());
-        if (!validDesc(desc)) {
-            m_stCtx.sendError(s, "bad_desc", "desc must be <= 200 bytes");
+    std::string strDesc;
+    if (stJ.contains("desc") && stJ["desc"].is_string()) {
+        strDesc = trim(stJ["desc"].get<std::string>());
+        if (!validDesc(strDesc)) {
+            m_stCtx.sendError(stS, "bad_desc", "desc must be <= 200 bytes");
             return;
         }
     }
 
     /* ---- 唯一性检查 ---- */
-    if (m_stCtx.users().findByUsername(username)) {
-        m_stCtx.sendError(s, "username_taken", "该登录名已被占用");
+    if (m_stCtx.users().findByUsername(strUsername)) {
+        m_stCtx.sendError(stS, "username_taken", "该登录名已被占用");
         return;
     }
 
-    std::string error;
-    if (!m_stCtx.users().createUser(username, password, nickname, age, desc, &error)) {
-        LOG_ERROR("注册失败（%s）：%s", username.c_str(), error.c_str());
-        m_stCtx.sendError(s, "register_failed", "注册失败，请稍后再试");
+    std::string strError;
+    if (!m_stCtx.users().createUser(strUsername, strPassword, strNickname, nAge, strDesc, &strError)) {
+        LOG_ERROR("注册失败（%s）：%s", strUsername.c_str(), strError.c_str());
+        m_stCtx.sendError(stS, "register_failed", "注册失败，请稍后再试");
         return;
     }
 
-    Json resp = Json::object();
-    resp["ok"] = true;
-    resp["username"] = username;
-    resp["nickname"] = nickname;
-    if (auto created = m_stCtx.users().findByUsername(username)) {
-        resp["userId"] = created->id;
+    Json stResp = Json::object();
+    stResp["ok"] = true;
+    stResp["username"] = strUsername;
+    stResp["nickname"] = strNickname;
+    if (auto created = m_stCtx.users().findByUsername(strUsername)) {
+        stResp["userId"] = created->id;
     }
-    m_stCtx.sendTo(s, OpCode_EN::RegisterResp, resp);
+    m_stCtx.sendTo(stS, OpCode_EN::RegisterResp, stResp);
 
     LOG_INFO("session#%llu 注册新账号 '%s'（昵称 '%s'，年龄 %d）",
-             static_cast<unsigned long long>(s.id()), username.c_str(),
-             nickname.c_str(), age);
+             static_cast<unsigned long long>(stS.id()), strUsername.c_str(),
+             strNickname.c_str(), nAge);
 }
 
 /*
- * 功能描述:  执行 onUpdateProfile 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  更新on 个人资料；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   stJ              输入数据，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CUserService::onUpdateProfile(CSession& s, const Json& j) {
-    if (!s.loggedIn()) {
-        m_stCtx.sendError(s, "not_logged_in", "login first");
+void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
         return;
     }
 
     /* 只更新请求里出现的字段，没带的保持原值 */
-    std::string newName = s.name();
-    if (j.contains("name") && !j["name"].is_null()) {
-        if (!j["name"].is_string()) {
-            m_stCtx.sendError(s, "bad_payload", "field 'name' must be a string");
+    std::string strNewName = stS.name();
+    if (stJ.contains("name") && !stJ["name"].is_null()) {
+        if (!stJ["name"].is_string()) {
+            m_stCtx.sendError(stS, "bad_payload", "field 'name' must be a string");
             return;
         }
-        newName = trim(j["name"].get<std::string>());
-        if (!validName(newName)) {
-            m_stCtx.sendError(s, "bad_name", "name must be 1..24 bytes without control chars");
-            return;
-        }
-    }
-
-    int newAge = s.age();
-    if (j.contains("age") && !j["age"].is_null()) {
-        if (!readAge(j, newAge)) {
-            m_stCtx.sendError(s, "bad_age", "age must be an integer in 0..150");
+        strNewName = trim(stJ["name"].get<std::string>());
+        if (!validName(strNewName)) {
+            m_stCtx.sendError(stS, "bad_name", "name must be 1..24 bytes without control chars");
             return;
         }
     }
 
-    std::string newDesc = s.desc();
-    if (j.contains("desc") && !j["desc"].is_null()) {
-        if (!j["desc"].is_string()) {
-            m_stCtx.sendError(s, "bad_payload", "field 'desc' must be a string");
-            return;
-        }
-        newDesc = trim(j["desc"].get<std::string>());
-        if (!validDesc(newDesc)) {
-            m_stCtx.sendError(s, "bad_desc", "desc must be <= 200 bytes");
+    int nNewAge = stS.age();
+    if (stJ.contains("age") && !stJ["age"].is_null()) {
+        if (!readAge(stJ, nNewAge)) {
+            m_stCtx.sendError(stS, "bad_age", "age must be an integer in 0..150");
             return;
         }
     }
 
-    const std::string oldName = s.name();
-    const bool renamed = (newName != oldName);
+    std::string strNewDesc = stS.desc();
+    if (stJ.contains("desc") && !stJ["desc"].is_null()) {
+        if (!stJ["desc"].is_string()) {
+            m_stCtx.sendError(stS, "bad_payload", "field 'desc' must be a string");
+            return;
+        }
+        strNewDesc = trim(stJ["desc"].get<std::string>());
+        if (!validDesc(strNewDesc)) {
+            m_stCtx.sendError(stS, "bad_desc", "desc must be <= 200 bytes");
+            return;
+        }
+    }
 
-    s.setName(newName);
-    s.setAge(newAge);
-    s.setDesc(newDesc);
+    const std::string strOldName = stS.name();
+    const bool nRenamed = (strNewName != strOldName);
 
-    Json resp = profileJson(s);
-    resp["ok"] = true;
-    m_stCtx.sendTo(s, OpCode_EN::ProfileResp, resp);
+    stS.setName(strNewName);
+    stS.setAge(nNewAge);
+    stS.setDesc(strNewDesc);
+
+    Json stResp = profileJson(stS);
+    stResp["ok"] = true;
+    m_stCtx.sendTo(stS, OpCode_EN::ProfileResp, stResp);
 
     /* 改名必须通知同房间，否则别人成员列表里还是旧名字 */
-    if (renamed && !s.room().empty()) {
-        Json sys = Json::object();
-        sys["event"] = "rename";
-        sys["room"] = s.room();
+    if (nRenamed && !stS.room().empty()) {
+        Json stSys = Json::object();
+        stSys["event"] = "rename";
+        stSys["room"] = stS.room();
         /* 客户端用它更新成员列表 */
-        sys["name"] = newName;
-        sys["text"] = oldName + " 改名为 " + newName;
-        sys["ts"] = nowMs();
-        m_stCtx.broadcastRoom(s.room(), OpCode_EN::SystemMsg, sys, 0);
+        stSys["name"] = strNewName;
+        stSys["text"] = strOldName + " 改名为 " + strNewName;
+        stSys["ts"] = nowMs();
+        m_stCtx.broadcastRoom(stS.room(), OpCode_EN::SystemMsg, stSys, 0);
     }
 
     LOG_INFO("session#%llu profile updated (name='%s', age=%d, desc=%zu B)",
-             static_cast<unsigned long long>(s.id()), newName.c_str(), newAge, newDesc.size());
+             static_cast<unsigned long long>(stS.id()), strNewName.c_str(), nNewAge, strNewDesc.size());
 }
 
 /*
- * 功能描述:  执行 onPing 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  执行onping；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CUserService::onPing(CSession& s, const Json& /*j*/) {
-    Json resp = Json::object();
-    resp["ts"] = nowMs();
-    m_stCtx.sendTo(s, OpCode_EN::Pong, resp);
+void CUserService::onPing(CSession& stS, const Json& /*j*/) {
+    Json stResp = Json::object();
+    stResp["ts"] = nowMs();
+    m_stCtx.sendTo(stS, OpCode_EN::Pong, stResp);
 }
 
 /* namespace dp */

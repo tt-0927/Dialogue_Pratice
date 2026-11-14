@@ -18,12 +18,12 @@
 namespace {
 
 /*
- * 功能描述:  执行 usage 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  打印命令行参数用法说明。
  * 作者:      JaTin
- * param [in]  prog  参数。
- * return:    void
+ * param [in]   strProg          输入数据，类型 const char*。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void usage(const char* prog) {
+void usage(const char* strProg) {
     std::printf(
         "Dialogue Pratice CServer\n"
         "用法: %s [选项]\n"
@@ -39,116 +39,116 @@ void usage(const char* prog) {
         "      --no-register        关闭自助注册（默认开启，公网部署建议关闭）\n"
         "      --log-level <lvl>    debug|info|warn|error，默认 info\n"
         "  -h, --help               显示帮助\n",
-        prog);
+        strProg);
 }
 
 /*
- * 功能描述:  执行 takeValue 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  从命令行参数中取出指定选项的值。
  * 作者:      JaTin
- * param [in]  argc  参数。
- * param [in]  argv  参数。
- * param [out]  i  参数。
- * param [in]  name  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nArgc            输入数据，类型 int。
+ * param [in]   strArgv          输入数据，类型 char**。
+ * param [out]  nI               输入数据，类型 int&。
+ * param [in]   strName          名称或昵称，类型 const char*。
+ * return:    成功返回对象指针；未找到或失败时返回 nullptr。
  */
-const char* takeValue(int argc, char** argv, int& i, const char* name) {
-    if (i + 1 >= argc) {
-        std::fprintf(stderr, "缺少参数值: %s\n", name);
+const char* takeValue(int nArgc, char** strArgv, int& nI, const char* strName) {
+    if (nI + 1 >= nArgc) {
+        std::fprintf(stderr, "缺少参数值: %s\n", strName);
         std::exit(2);
     }
-    return argv[++i];
+    return strArgv[++nI];
 }
 
 /* namespace */
 }
 
 /*
- * 功能描述:  执行 main 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  程序入口：解析命令行参数、初始化服务端并运行事件循环。
  * 作者:      JaTin
- * param [in]  argc  参数。
- * param [in]  argv  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nArgc            输入数据，类型 int。
+ * param [in]   strArgv          输入数据，类型 char**。
+ * return:    返回处理结果码；0 表示成功，负值或 -1 表示失败。
  */
-int main(int argc, char** argv) {
-    dp::CServer::Config cfg;
+int main(int nArgc, char** strArgv) {
+    dp::CServer::Config stCfg;
 
-    for (int i = 1; i < argc; ++i) {
-        const std::string a = argv[i];
+    for (int nI = 1; nI < nArgc; ++nI) {
+        const std::string strA = strArgv[nI];
 
-        if (a == "-h" || a == "--help") {
-            usage(argv[0]);
+        if (strA == "-h" || strA == "--help") {
+            usage(strArgv[0]);
             return 0;
         }
-        if (a == "-b" || a == "--bind") {
-            cfg.bindAddr = takeValue(argc, argv, i, "--bind");
+        if (strA == "-b" || strA == "--bind") {
+            stCfg.bindAddr = takeValue(nArgc, strArgv, nI, "--bind");
             continue;
         }
-        if (a == "-p" || a == "--port") {
-            cfg.port = static_cast<uint16_t>(std::atoi(takeValue(argc, argv, i, "--port")));
+        if (strA == "-p" || strA == "--port") {
+            stCfg.port = static_cast<uint16_t>(std::atoi(takeValue(nArgc, strArgv, nI, "--port")));
             continue;
         }
-        if (a == "--backlog") {
-            cfg.backlog = std::atoi(takeValue(argc, argv, i, "--backlog"));
+        if (strA == "--backlog") {
+            stCfg.backlog = std::atoi(takeValue(nArgc, strArgv, nI, "--backlog"));
             continue;
         }
-        if (a == "--timeout") {
-            cfg.heartbeatTimeoutSec = std::atoi(takeValue(argc, argv, i, "--timeout"));
+        if (strA == "--timeout") {
+            stCfg.heartbeatTimeoutSec = std::atoi(takeValue(nArgc, strArgv, nI, "--timeout"));
             continue;
         }
-        if (a == "--max-conn") {
-            cfg.maxConnections = static_cast<size_t>(std::atol(takeValue(argc, argv, i, "--max-conn")));
+        if (strA == "--max-conn") {
+            stCfg.maxConnections = static_cast<size_t>(std::atol(takeValue(nArgc, strArgv, nI, "--max-conn")));
             continue;
         }
-        if (a == "--history") {
-            cfg.historyEntries = static_cast<size_t>(std::atol(takeValue(argc, argv, i, "--history")));
+        if (strA == "--history") {
+            stCfg.historyEntries = static_cast<size_t>(std::atol(takeValue(nArgc, strArgv, nI, "--history")));
             continue;
         }
-        if (a == "--room-ttl") {
-            cfg.roomTtlSec = std::atoi(takeValue(argc, argv, i, "--room-ttl"));
+        if (strA == "--room-ttl") {
+            stCfg.roomTtlSec = std::atoi(takeValue(nArgc, strArgv, nI, "--room-ttl"));
             continue;
         }
-        if (a == "--retention-days") {
-            cfg.messageRetentionDays = std::atoi(takeValue(argc, argv, i, "--retention-days"));
+        if (strA == "--retention-days") {
+            stCfg.messageRetentionDays = std::atoi(takeValue(nArgc, strArgv, nI, "--retention-days"));
             continue;
         }
-        if (a == "--require-auth") {
-            cfg.requireAuth = true;
+        if (strA == "--require-auth") {
+            stCfg.requireAuth = true;
             continue;
         }
-        if (a == "--no-register") {
-            cfg.allowRegistration = false;
+        if (strA == "--no-register") {
+            stCfg.allowRegistration = false;
             continue;
         }
-        if (a == "--log-level") {
-            dp::LogLevel_EN lv;
-            if (!dp::CLogger::parseLevel(takeValue(argc, argv, i, "--log-level"), lv)) {
+        if (strA == "--log-level") {
+            dp::LogLevel_EN enLv;
+            if (!dp::CLogger::parseLevel(takeValue(nArgc, strArgv, nI, "--log-level"), enLv)) {
                 std::fprintf(stderr, "非法日志级别，可选 debug|info|warn|error\n");
                 return 2;
             }
-            dp::CLogger::instance().setLevel(lv);
+            dp::CLogger::instance().setLevel(enLv);
             continue;
         }
 
-        std::fprintf(stderr, "未知参数: %s\n", a.c_str());
-        usage(argv[0]);
+        std::fprintf(stderr, "未知参数: %s\n", strA.c_str());
+        usage(strArgv[0]);
         return 2;
     }
 
-    if (cfg.port == 0) {
+    if (stCfg.port == 0) {
         std::fprintf(stderr, "端口不能为 0\n");
         return 2;
     }
-    if (cfg.heartbeatTimeoutSec <= 0) {
+    if (stCfg.heartbeatTimeoutSec <= 0) {
         std::fprintf(stderr, "心跳超时必须为正数\n");
         return 2;
     }
 
-    dp::CServer server(cfg);
-    if (!server.start()) {
+    dp::CServer stServer(stCfg);
+    if (!stServer.start()) {
         LOG_ERROR("server start failed");
         return 1;
     }
-    server.run();
+    stServer.run();
     LOG_INFO("bye");
     return 0;
 }

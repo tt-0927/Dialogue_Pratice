@@ -51,140 +51,157 @@ CREATE INDEX IF NOT EXISTS idx_messages_created  ON messages(created_at);
 }
 
 /*
- * 功能描述:  执行 open 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取open。
  * 作者:      JaTin
- * param [in]  path  参数。
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strPath          文件路径，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CMessageRepository::open(const std::string& path, std::string* error) {
-    return db_.open(path, error);
+bool CMessageRepository::open(const std::string& strPath, std::string* pError) {
+    return db_.open(strPath, pError);
 }
 
 /*
- * 功能描述:  执行 ensureSchema 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  确保schema。
  * 作者:      JaTin
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CMessageRepository::ensureSchema(std::string* error) {
-    return db_.exec(kSchema, error);
+bool CMessageRepository::ensureSchema(std::string* pError) {
+    return db_.exec(kSchema, pError);
 }
 
-bool CMessageRepository::append(const std::string& roomId, const HistoryEntry_S& entry,
-                               int64_t accountId, std::string* error) {
+/*
+ * 功能描述:  追加append；失败时返回 false。
+ * 作者:      JaTin
+ * param [in]   strRoomId        输入数据，类型 const std::string&。
+ * param [in]   stEntry          条目，类型 const HistoryEntry_S&。
+ * param [in]   lAccountId       账号编号，类型 int64_t。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
+ */
+bool CMessageRepository::append(const std::string& strRoomId, const HistoryEntry_S& stEntry,
+                               int64_t lAccountId, std::string* pError) {
     if (!db_.isOpen()) {
-        if (error != nullptr) *error = "database not open";
+        if (pError != nullptr) *pError = "database not open";
         return false;
     }
 
-    CStatement stmt(db_, "INSERT OR IGNORE INTO messages "
+    CStatement stStmt(db_, "INSERT OR IGNORE INTO messages "
                         "(room_id, seq, sender_id, account_id, sender_name, kind, "
                         " text, audio, duration_ms, created_at) "
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    if (!stmt.ok()) {
-        if (error != nullptr) *error = stmt.error();
+    if (!stStmt.ok()) {
+        if (pError != nullptr) *pError = stStmt.error();
         return false;
     }
 
-    stmt.bindText(1, roomId);
-    stmt.bindInt64(2, static_cast<int64_t>(entry.seq));
-    stmt.bindInt64(3, static_cast<int64_t>(entry.from));
-    stmt.bindInt64(4, accountId);
-    stmt.bindText(5, entry.name);
-    stmt.bindInt64(6, entry.kind == HistoryKind_EN::Voice ? 1 : 0);
-    stmt.bindText(7, entry.text);
-    stmt.bindBlob(8, entry.audio);
-    stmt.bindInt64(9, static_cast<int64_t>(entry.durationMs));
-    stmt.bindInt64(10, entry.ts);
+    stStmt.bindText(1, strRoomId);
+    stStmt.bindInt64(2, static_cast<int64_t>(stEntry.seq));
+    stStmt.bindInt64(3, static_cast<int64_t>(stEntry.from));
+    stStmt.bindInt64(4, lAccountId);
+    stStmt.bindText(5, stEntry.name);
+    stStmt.bindInt64(6, stEntry.kind == HistoryKind_EN::Voice ? 1 : 0);
+    stStmt.bindText(7, stEntry.text);
+    stStmt.bindBlob(8, stEntry.audio);
+    stStmt.bindInt64(9, static_cast<int64_t>(stEntry.durationMs));
+    stStmt.bindInt64(10, stEntry.ts);
 
-    stmt.step();
-    if (stmt.failed()) {
-        if (error != nullptr) *error = stmt.error();
+    stStmt.step();
+    if (stStmt.failed()) {
+        if (pError != nullptr) *pError = stStmt.error();
         return false;
     }
     return true;
 }
 
 /*
- * 功能描述:  执行 loadRecent 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  加载recent。
  * 作者:      JaTin
- * param [in]  roomId  参数。
- * param [in]  limit  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strRoomId        输入数据，类型 const std::string&。
+ * param [in]   nLimit           输入数据，类型 int。
+ * return:    返回 std::vector<HistoryEntry_S> 类型的处理结果，具体含义见功能描述。
  */
-std::vector<HistoryEntry_S> CMessageRepository::loadRecent(const std::string& roomId, int limit) {
-    std::vector<HistoryEntry_S> out;
-    if (!db_.isOpen() || limit <= 0) return out;
+std::vector<HistoryEntry_S> CMessageRepository::loadRecent(const std::string& strRoomId, int nLimit) {
+    std::vector<HistoryEntry_S> aOut;
+    if (!db_.isOpen() || nLimit <= 0) return aOut;
 
-    CStatement stmt(db_, "SELECT seq, sender_id, sender_name, kind, text, audio, "
+    CStatement stStmt(db_, "SELECT seq, sender_id, sender_name, kind, text, audio, "
                         "duration_ms, created_at "
                         "FROM messages WHERE room_id = ? ORDER BY seq DESC LIMIT ?");
-    if (!stmt.ok()) return out;
+    if (!stStmt.ok()) return aOut;
 
-    stmt.bindText(1, roomId);
-    stmt.bindInt64(2, limit);
+    stStmt.bindText(1, strRoomId);
+    stStmt.bindInt64(2, nLimit);
 
-    while (stmt.step()) {
-        HistoryEntry_S entry;
-        entry.seq = static_cast<uint64_t>(stmt.columnInt64(0));
-        entry.from = static_cast<uint64_t>(stmt.columnInt64(1));
-        entry.name = stmt.columnText(2);
-        entry.kind = stmt.columnInt64(3) != 0 ? HistoryKind_EN::Voice : HistoryKind_EN::Text;
-        entry.text = stmt.columnText(4);
-        entry.audio = stmt.columnBlob(5);
-        entry.durationMs = static_cast<uint32_t>(stmt.columnInt64(6));
-        entry.ts = stmt.columnInt64(7);
-        out.push_back(std::move(entry));
+    while (stStmt.step()) {
+        HistoryEntry_S stEntry;
+        stEntry.seq = static_cast<uint64_t>(stStmt.columnInt64(0));
+        stEntry.from = static_cast<uint64_t>(stStmt.columnInt64(1));
+        stEntry.name = stStmt.columnText(2);
+        stEntry.kind = stStmt.columnInt64(3) != 0 ? HistoryKind_EN::Voice : HistoryKind_EN::Text;
+        stEntry.text = stStmt.columnText(4);
+        stEntry.audio = stStmt.columnBlob(5);
+        stEntry.durationMs = static_cast<uint32_t>(stStmt.columnInt64(6));
+        stEntry.ts = stStmt.columnInt64(7);
+        aOut.push_back(std::move(stEntry));
     }
 
     /* 查询是倒序，返回正序 */
-    std::reverse(out.begin(), out.end());
-    return out;
+    std::reverse(aOut.begin(), aOut.end());
+    return aOut;
 }
 
 /*
- * 功能描述:  执行 countExpired 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  统计expired。
  * 作者:      JaTin
- * param [in]  retentionDays  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   nRetentionDays   输入数据，类型 int。
+ * return:    返回计数或长度；无有效数据时返回 0。
  */
-size_t CMessageRepository::countExpired(int retentionDays) {
-    if (!db_.isOpen() || retentionDays <= 0) return 0;
+size_t CMessageRepository::countExpired(int nRetentionDays) {
+    if (!db_.isOpen() || nRetentionDays <= 0) return 0;
 
-    const int64_t cutoff = static_cast<int64_t>(nowMs())
-                           - static_cast<int64_t>(retentionDays) * 86400000LL;
+    const int64_t lCutoff = static_cast<int64_t>(nowMs())
+                           - static_cast<int64_t>(nRetentionDays) * 86400000LL;
 
-    CStatement stmt(db_, "SELECT COUNT(*) FROM messages WHERE created_at < ?");
-    if (!stmt.ok()) return 0;
-    stmt.bindInt64(1, cutoff);
-    if (!stmt.step()) return 0;
-    return static_cast<size_t>(stmt.columnInt64(0));
+    CStatement stStmt(db_, "SELECT COUNT(*) FROM messages WHERE created_at < ?");
+    if (!stStmt.ok()) return 0;
+    stStmt.bindInt64(1, lCutoff);
+    if (!stStmt.step()) return 0;
+    return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
-int CMessageRepository::archiveAndPrune(int retentionDays, const std::string& archivePath,
-                                       std::string* error) {
-    if (!db_.isOpen() || retentionDays <= 0 || archivePath.empty()) return 0;
+/*
+ * 功能描述:  归档andprune。
+ * 作者:      JaTin
+ * param [in]   nRetentionDays   输入数据，类型 int。
+ * param [in]   strArchivePath   输入数据，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    返回处理结果码；0 表示成功，负值或 -1 表示失败。
+ */
+int CMessageRepository::archiveAndPrune(int nRetentionDays, const std::string& strArchivePath,
+                                       std::string* pError) {
+    if (!db_.isOpen() || nRetentionDays <= 0 || strArchivePath.empty()) return 0;
 
-    const size_t expired = countExpired(retentionDays);
-    if (expired == 0) return 0;
+    const size_t uExpired = countExpired(nRetentionDays);
+    if (uExpired == 0) return 0;
 
-    const int64_t cutoff = static_cast<int64_t>(nowMs())
-                           - static_cast<int64_t>(retentionDays) * 86400000LL;
+    const int64_t lCutoff = static_cast<int64_t>(nowMs())
+                           - static_cast<int64_t>(nRetentionDays) * 86400000LL;
 
     /* ATTACH 不支持参数绑定，路径只能拼进 SQL —— 手工转义单引号。 */
-    std::string escaped;
-    escaped.reserve(archivePath.size());
-    for (char c : archivePath) {
-        if (c == '\'') escaped += "''";
-        else escaped += c;
+    std::string strEscaped;
+    strEscaped.reserve(strArchivePath.size());
+    for (char chC : strArchivePath) {
+        if (chC == '\'') strEscaped += "''";
+        else strEscaped += chC;
     }
 
-    const std::string attach = "ATTACH DATABASE '" + escaped + "' AS arch";
-    if (!db_.exec(attach, error)) return 0;
+    const std::string strAttach = "ATTACH DATABASE '" + strEscaped + "' AS arch";
+    if (!db_.exec(strAttach, pError)) return 0;
 
     /* 归档库建表（结构必须与主库一致，才能用 SELECT * 复制） */
-    const std::string createArchive = R"SQL(
+    const std::string strCreateArchive = R"SQL(
 CREATE TABLE IF NOT EXISTS arch.messages (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id     TEXT    NOT NULL,
@@ -199,60 +216,60 @@ CREATE TABLE IF NOT EXISTS arch.messages (
     created_at  INTEGER NOT NULL,
     UNIQUE(room_id, seq)
 ))SQL";
-    if (!db_.exec(createArchive, error)) {
+    if (!db_.exec(strCreateArchive, pError)) {
         db_.exec("DETACH DATABASE arch", nullptr);
         return 0;
     }
 
     /* 复制到归档库：唯一键 + INSERT OR IGNORE 保证重复执行不产生副本 */
-    int archived = 0;
+    int nArchived = 0;
     {
-        CStatement copy(db_, "INSERT OR IGNORE INTO arch.messages "
+        CStatement stCopy(db_, "INSERT OR IGNORE INTO arch.messages "
                             "(room_id, seq, sender_id, account_id, sender_name, kind, "
                             " text, audio, duration_ms, created_at) "
                             "SELECT room_id, seq, sender_id, account_id, sender_name, kind, "
                             "text, audio, duration_ms, created_at FROM main.messages "
                             "WHERE created_at < ?");
-        if (copy.ok()) {
-            copy.bindInt64(1, cutoff);
-            copy.step();
-            if (copy.failed()) {
-                if (error != nullptr) *error = copy.error();
+        if (stCopy.ok()) {
+            stCopy.bindInt64(1, lCutoff);
+            stCopy.step();
+            if (stCopy.failed()) {
+                if (pError != nullptr) *pError = stCopy.error();
                 db_.exec("DETACH DATABASE arch", nullptr);
                 return 0;
             }
-            archived = static_cast<int>(expired);
+            nArchived = static_cast<int>(uExpired);
         }
     }
 
     /* 复制成功后才删除主库记录 */
     {
-        CStatement del(db_, "DELETE FROM main.messages WHERE created_at < ?");
-        if (!del.ok()) {
-            if (error != nullptr) *error = del.error();
+        CStatement stDel(db_, "DELETE FROM main.messages WHERE created_at < ?");
+        if (!stDel.ok()) {
+            if (pError != nullptr) *pError = stDel.error();
             db_.exec("DETACH DATABASE arch", nullptr);
             return 0;
         }
-        del.bindInt64(1, cutoff);
-        del.step();
-        if (del.failed() && error != nullptr) *error = del.error();
+        stDel.bindInt64(1, lCutoff);
+        stDel.step();
+        if (stDel.failed() && pError != nullptr) *pError = stDel.error();
     }
 
     db_.exec("DETACH DATABASE arch", nullptr);
-    return archived;
+    return nArchived;
 }
 
 /*
- * 功能描述:  执行 count 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  统计count。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回计数或长度；无有效数据时返回 0。
  */
 size_t CMessageRepository::count() {
     if (!db_.isOpen()) return 0;
 
-    CStatement stmt(db_, "SELECT COUNT(*) FROM messages");
-    if (!stmt.ok() || !stmt.step()) return 0;
-    return static_cast<size_t>(stmt.columnInt64(0));
+    CStatement stStmt(db_, "SELECT COUNT(*) FROM messages");
+    if (!stStmt.ok() || !stStmt.step()) return 0;
+    return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
 /* namespace dp */

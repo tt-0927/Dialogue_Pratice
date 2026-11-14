@@ -19,324 +19,322 @@
 namespace dp {
 
 /*
- * 功能描述:  执行 opcodes 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  返回本业务服务所处理的协议操作码列表。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回 std::vector<OpCode_EN> 类型的处理结果，具体含义见功能描述。
  */
 std::vector<OpCode_EN> CRoomService::opcodes() const {
     return {OpCode_EN::JoinRoom, OpCode_EN::LeaveRoom, OpCode_EN::ListRooms};
 }
 
 /*
- * 功能描述:  执行 handle 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  按操作码分发并处理一条业务请求。
  * 作者:      JaTin
- * param [out]  session  参数。
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    void
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   stPayload        协议载荷内容，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::handle(CSession& session, OpCode_EN op, const Json& payload) {
-    switch (op) {
-        case OpCode_EN::JoinRoom:  onJoinRoom(session, payload);  break;
-        case OpCode_EN::LeaveRoom: onLeaveRoom(session, payload); break;
-        case OpCode_EN::ListRooms: onListRooms(session, payload); break;
+void CRoomService::handle(CSession& stSession, OpCode_EN enOp, const Json& stPayload) {
+    switch (enOp) {
+        case OpCode_EN::JoinRoom:  onJoinRoom(stSession, stPayload);  break;
+        case OpCode_EN::LeaveRoom: onLeaveRoom(stSession, stPayload); break;
+        case OpCode_EN::ListRooms: onListRooms(stSession, stPayload); break;
         default:                                               break;
     }
 }
 
 /*
- * 功能描述:  执行 membersJson 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取成员列表 JSON 对象。
  * 作者:      JaTin
- * param [in]  room  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   stRoom           房间号，类型 const CRoom&。
+ * return:    返回 Json 类型的处理结果，具体含义见功能描述。
  */
-Json CRoomService::membersJson(const CRoom& room) {
-    Json members = Json::array();
-    for (const auto& kv : room.members()) {
-        Json m = Json::object();
-        m["id"] = kv.second->id();
-        m["name"] = kv.second->name();
-        members.push_back(std::move(m));
+Json CRoomService::membersJson(const CRoom& stRoom) {
+    Json stMembers = Json::array();
+    for (const auto& stKv : stRoom.members()) {
+        Json stM = Json::object();
+        stM["id"] = stKv.second->id();
+        stM["name"] = stKv.second->name();
+        stMembers.push_back(std::move(stM));
     }
-    return members;
+    return stMembers;
 }
 
 /*
- * 功能描述:  执行 onJoinRoom 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  加入on 房间；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   stJ              输入数据，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::onJoinRoom(CSession& s, const Json& j) {
-    if (!s.loggedIn()) {
-        m_stCtx.sendError(s, "not_logged_in", "login first");
+void CRoomService::onJoinRoom(CSession& stS, const Json& stJ) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
         return;
     }
-    if (!j.contains("room") || !j["room"].is_string()) {
-        m_stCtx.sendError(s, "bad_payload", "field 'room' (string) is required");
+    if (!stJ.contains("room") || !stJ["room"].is_string()) {
+        m_stCtx.sendError(stS, "bad_payload", "field 'room' (string) is required");
         return;
     }
-    const std::string roomId = trim(j["room"].get<std::string>());
-    if (!validRoomId(roomId)) {
-        m_stCtx.sendError(s, "bad_room", "room id must be 1..32 chars of [A-Za-z0-9_-]");
+    const std::string strRoomId = trim(stJ["room"].get<std::string>());
+    if (!validRoomId(strRoomId)) {
+        m_stCtx.sendError(stS, "bad_room", "room id must be 1..32 chars of [A-Za-z0-9_-]");
         return;
     }
 
     /* 已在目标房间：只回成员快照，不重复广播。 */
-    if (s.room() == roomId) {
-        CRoom* room = m_stCtx.rooms().find(roomId);
-        Json state = Json::object();
-        state["room"] = roomId;
-        state["created"] = false;
-        state["members"] = (room != nullptr) ? membersJson(*room) : Json::array();
-        m_stCtx.sendTo(s, OpCode_EN::RoomState, state);
-        if (room != nullptr) {
-            sendHistory(s, *room);
+    if (stS.room() == strRoomId) {
+        CRoom* stRoom = m_stCtx.rooms().find(strRoomId);
+        Json stState = Json::object();
+        stState["room"] = strRoomId;
+        stState["created"] = false;
+        stState["members"] = (stRoom != nullptr) ? membersJson(*stRoom) : Json::array();
+        m_stCtx.sendTo(stS, OpCode_EN::RoomState, stState);
+        if (stRoom != nullptr) {
+            sendHistory(stS, *stRoom);
         }
         return;
     }
 
     /* 切换房间：先离开旧房间并通知旧房友。 */
-    if (!s.room().empty()) leaveRoom(s, true);
+    if (!stS.room().empty()) leaveRoom(stS, true);
 
     /* 房间不存在（或已空）则按房间号创建——服务端不做「房间白名单」限制。 */
     /* 空房可能仍在滞留期内，此时历史消息保留，created 仍报 true（房间里确实没人）。 */
-    CRoom* existing = m_stCtx.rooms().find(roomId);
-    const bool created = (existing == nullptr || existing->empty());
-    CRoom& room = m_stCtx.rooms().getOrCreate(roomId);
-    room.add(&s);
-    s.setRoom(roomId);
+    CRoom* pExisting = m_stCtx.rooms().find(strRoomId);
+    const bool nCreated = (pExisting == nullptr || pExisting->empty());
+    CRoom& stRoom = m_stCtx.rooms().getOrCreate(strRoomId);
+    stRoom.add(&stS);
+    stS.setRoom(strRoomId);
 
-    Json state = Json::object();
-    state["room"] = roomId;
-    state["created"] = created;
-    state["members"] = membersJson(room);
-    m_stCtx.sendTo(s, OpCode_EN::RoomState, state);
+    Json stState = Json::object();
+    stState["room"] = strRoomId;
+    stState["created"] = nCreated;
+    stState["members"] = membersJson(stRoom);
+    m_stCtx.sendTo(stS, OpCode_EN::RoomState, stState);
 
     /* 先给进房者补历史，再广播 join，客户端看到的消息顺序才完整。 */
-    sendHistory(s, room);
+    sendHistory(stS, stRoom);
 
-    Json sys = Json::object();
-    sys["event"] = "join";
-    sys["room"] = roomId;
-    sys["userId"] = s.id();
-    sys["name"] = s.name();
-    sys["text"] = s.name() + (created ? " 创建并加入了房间 " : " 加入了房间 ") + roomId;
-    sys["ts"] = nowMs();
-    m_stCtx.broadcastRoom(roomId, OpCode_EN::SystemMsg, sys, s.id());
+    Json stSys = Json::object();
+    stSys["event"] = "join";
+    stSys["room"] = strRoomId;
+    stSys["userId"] = stS.id();
+    stSys["name"] = stS.name();
+    stSys["text"] = stS.name() + (nCreated ? " 创建并加入了房间 " : " 加入了房间 ") + strRoomId;
+    stSys["ts"] = nowMs();
+    m_stCtx.broadcastRoom(strRoomId, OpCode_EN::SystemMsg, stSys, stS.id());
 
     LOG_INFO("session#%llu ('%s') joined room '%s' (%s, members=%zu)",
-             static_cast<unsigned long long>(s.id()), s.name().c_str(),
-             roomId.c_str(), created ? "created" : "existing", room.size());
+             static_cast<unsigned long long>(stS.id()), stS.name().c_str(),
+             strRoomId.c_str(), nCreated ? "created" : "existing", stRoom.size());
 }
 
 /*
- * 功能描述:  执行 onLeaveRoom 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  退出on 房间；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::onLeaveRoom(CSession& s, const Json& /*j*/) {
-    if (!s.loggedIn()) {
-        m_stCtx.sendError(s, "not_logged_in", "login first");
+void CRoomService::onLeaveRoom(CSession& stS, const Json& /*j*/) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
         return;
     }
-    if (s.room().empty()) {
-        m_stCtx.sendError(s, "not_in_room", "you are not in a room");
+    if (stS.room().empty()) {
+        m_stCtx.sendError(stS, "not_in_room", "you are not in a room");
         return;
     }
 
-    const std::string roomId = s.room();
-    leaveRoom(s, true);
+    const std::string strRoomId = stS.room();
+    leaveRoom(stS, true);
 
-    Json sys = Json::object();
-    sys["event"] = "left";
-    sys["room"] = roomId;
-    sys["text"] = "已离开房间 " + roomId;
-    sys["ts"] = nowMs();
-    m_stCtx.sendTo(s, OpCode_EN::SystemMsg, sys);
+    Json stSys = Json::object();
+    stSys["event"] = "left";
+    stSys["room"] = strRoomId;
+    stSys["text"] = "已离开房间 " + strRoomId;
+    stSys["ts"] = nowMs();
+    m_stCtx.sendTo(stS, OpCode_EN::SystemMsg, stSys);
 }
 
 /*
- * 功能描述:  执行 onListRooms 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  执行on 列表房间列表；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::onListRooms(CSession& s, const Json& /*j*/) {
-    if (!s.loggedIn()) {
-        m_stCtx.sendError(s, "not_logged_in", "login first");
+void CRoomService::onListRooms(CSession& stS, const Json& /*j*/) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
         return;
     }
 
-    Json list = Json::array();
-    for (const auto& kv : m_stCtx.rooms().all()) {
+    Json stList = Json::array();
+    for (const auto& stKv : m_stCtx.rooms().all()) {
         /* 滞留中的空房不对外展示 */
-        if (kv.second->empty()) continue;
-        Json r = Json::object();
-        r["id"] = kv.first;
-        r["count"] = kv.second->size();
-        list.push_back(std::move(r));
+        if (stKv.second->empty()) continue;
+        Json stR = Json::object();
+        stR["id"] = stKv.first;
+        stR["count"] = stKv.second->size();
+        stList.push_back(std::move(stR));
     }
 
-    Json resp = Json::object();
-    resp["rooms"] = list;
-    m_stCtx.sendTo(s, OpCode_EN::RoomList, resp);
+    Json stResp = Json::object();
+    stResp["rooms"] = stList;
+    m_stCtx.sendTo(stS, OpCode_EN::RoomList, stResp);
 }
 
 /*
- * 功能描述:  执行 leaveRoom 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  退出房间。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  notifyOthers  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   nNotifyOthers    输入数据，类型 bool。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::leaveRoom(CSession& s, bool notifyOthers) {
-    if (s.room().empty()) return;
+void CRoomService::leaveRoom(CSession& stS, bool nNotifyOthers) {
+    if (stS.room().empty()) return;
 
-    const std::string roomId = s.room();
-    const std::string name = s.name();
-    const uint64_t sid = s.id();
+    const std::string strRoomId = stS.room();
+    const std::string strName = stS.name();
+    const uint64_t uSid = stS.id();
 
-    s.clearRoom();
+    stS.clearRoom();
 
-    CRoom* room = m_stCtx.rooms().find(roomId);
-    if (room == nullptr) return;
+    CRoom* stRoom = m_stCtx.rooms().find(strRoomId);
+    if (stRoom == nullptr) return;
 
-    room->remove(sid);
+    stRoom->remove(uSid);
 
-    if (notifyOthers) {
-        Json sys = Json::object();
-        sys["event"] = "leave";
-        sys["room"] = roomId;
-        sys["userId"] = sid;
-        sys["name"] = name;
-        sys["text"] = name + " 离开了房间";
-        sys["ts"] = nowMs();
-        m_stCtx.broadcastRoom(roomId, OpCode_EN::SystemMsg, sys, sid);
+    if (nNotifyOthers) {
+        Json stSys = Json::object();
+        stSys["event"] = "leave";
+        stSys["room"] = strRoomId;
+        stSys["userId"] = uSid;
+        stSys["name"] = strName;
+        stSys["text"] = strName + " 离开了房间";
+        stSys["ts"] = nowMs();
+        m_stCtx.broadcastRoom(strRoomId, OpCode_EN::SystemMsg, stSys, uSid);
     }
 
-    if (room->empty()) {
-        const int ttl = m_stCtx.config().roomTtlSec;
-        if (ttl <= 0) {
-            m_stCtx.rooms().removeIfEmpty(roomId);
-            LOG_INFO("room '%s' removed (empty)", roomId.c_str());
+    if (stRoom->empty()) {
+        const int nTtl = m_stCtx.config().roomTtlSec;
+        if (nTtl <= 0) {
+            m_stCtx.rooms().removeIfEmpty(strRoomId);
+            LOG_INFO("room '%s' removed (empty)", strRoomId.c_str());
         } else {
             /* 滞留：保留房间与历史消息，方便断线重连的人回来还能看到上下文。 */
-            room->markEmpty(static_cast<int64_t>(nowMs()));
-            LOG_INFO("room '%s' is empty now, kept %ds for history", roomId.c_str(), ttl);
+            stRoom->markEmpty(static_cast<int64_t>(nowMs()));
+            LOG_INFO("room '%s' is empty now, kept %ds for history", strRoomId.c_str(), nTtl);
         }
     }
 }
 
 /*
- * 功能描述:  执行 entryToJson 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  转换为条目 JSON 对象。
  * 作者:      JaTin
- * param [in]  entry  参数。
- * param [in]  withAudio  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   stEntry          条目，类型 const HistoryEntry_S&。
+ * param [in]   nWithAudio       输入数据，类型 bool。
+ * return:    返回 Json 类型的处理结果，具体含义见功能描述。
  */
-Json CRoomService::entryToJson(const HistoryEntry_S& entry, bool withAudio) {
-    Json m = Json::object();
-    m["seq"] = entry.seq;
-    m["from"] = entry.from;
-    m["name"] = entry.name;
-    m["ts"] = entry.ts;
+Json CRoomService::entryToJson(const HistoryEntry_S& stEntry, bool nWithAudio) {
+    Json stM = Json::object();
+    stM["seq"] = stEntry.seq;
+    stM["from"] = stEntry.from;
+    stM["name"] = stEntry.name;
+    stM["ts"] = stEntry.ts;
 
-    if (entry.kind == HistoryKind_EN::Voice) {
-        m["kind"] = "voice";
-        m["durationMs"] = entry.durationMs;
-        if (withAudio) m["opus"] = base64Encode(entry.audio);
+    if (stEntry.kind == HistoryKind_EN::Voice) {
+        stM["kind"] = "voice";
+        stM["durationMs"] = stEntry.durationMs;
+        if (nWithAudio) stM["opus"] = base64Encode(stEntry.audio);
     } else {
-        m["kind"] = "text";
-        m["text"] = entry.text;
+        stM["kind"] = "text";
+        stM["text"] = stEntry.text;
     }
-    return m;
+    return stM;
 }
 
 /*
- * 功能描述:  执行 sendHistory 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  发送历史消息；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [out]  room  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [out]  stRoom           房间号，类型 CRoom&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoomService::sendHistory(CSession& s, CRoom& room) {
-    const ServerConfig_S& cfg = m_stCtx.config();
+void CRoomService::sendHistory(CSession& stS, CRoom& stRoom) {
+    const ServerConfig_S& stCfg = m_stCtx.config();
 
     /* 历史来源：优先内存环形缓冲（快），为空时回落到持久层。 */
     /* 内存为空只发生在服务端刚重启时——此时数据库是唯一的真相来源， */
     /* 不补回来的话「聊天记录库」就变成只写不读，等于白存。 */
-    const auto& inMemory = room.history();
+    const auto& stInMemory = stRoom.history();
 
-    std::vector<HistoryEntry_S> fromDb;
-    std::vector<const HistoryEntry_S*> entries;
+    std::vector<HistoryEntry_S> aFromDb;
+    std::vector<const HistoryEntry_S*> pEntries;
 
-    if (!inMemory.empty()) {
-        entries.reserve(inMemory.size());
-        for (const HistoryEntry_S& entry : inMemory) entries.push_back(&entry);
+    if (!stInMemory.empty()) {
+        pEntries.reserve(stInMemory.size());
+        for (const HistoryEntry_S& stEntry : stInMemory) pEntries.push_back(&stEntry);
     } else {
-        fromDb = m_stCtx.messages().loadRecent(room.id(), static_cast<int>(cfg.historySendLimit));
-        entries.reserve(fromDb.size());
-        for (const HistoryEntry_S& entry : fromDb) entries.push_back(&entry);
-        if (!fromDb.empty()) {
+        aFromDb = m_stCtx.messages().loadRecent(stRoom.id(), static_cast<int>(stCfg.historySendLimit));
+        pEntries.reserve(aFromDb.size());
+        for (const HistoryEntry_S& stEntry : aFromDb) pEntries.push_back(&stEntry);
+        if (!aFromDb.empty()) {
             LOG_INFO("房间 '%s' 内存无历史，从数据库补回 %zu 条",
-                     room.id().c_str(), fromDb.size());
+                     stRoom.id().c_str(), aFromDb.size());
         }
     }
 
-    if (entries.empty()) return;
+    if (pEntries.empty()) return;
 
     /* 语音条目一条就占 30~40 KB（Base64 后），如果和文本混在一个帧里， */
     /* 几条语音就能撞上单帧 64 KiB 上限。所以：文本批量成帧，语音每条单独成帧。 */
-    Json textBatch = Json::array();
-    std::vector<const HistoryEntry_S*> voices;
-    size_t bytes = 0;
-    size_t count = 0;
+    Json stTextBatch = Json::array();
+    std::vector<const HistoryEntry_S*> pVoices;
+    size_t uBytes = 0;
+    size_t uCount = 0;
 
     /* 从新到旧挑选，凑够条数/字节上限 */
-    for (auto it = entries.rbegin(); it != entries.rend(); ++it) {
-        const HistoryEntry_S& entry = **it;
-        if (count >= cfg.historySendLimit) break;
+    for (auto it = pEntries.rbegin(); it != pEntries.rend(); ++it) {
+        const HistoryEntry_S& stEntry = **it;
+        if (uCount >= stCfg.historySendLimit) break;
 
-        if (entry.kind == HistoryKind_EN::Voice) {
-            voices.push_back(&entry);
-            ++count;
+        if (stEntry.kind == HistoryKind_EN::Voice) {
+            pVoices.push_back(&stEntry);
+            ++uCount;
             continue;
         }
 
-        const size_t cost = entry.text.size() + entry.name.size() + 64;
-        if (bytes + cost > cfg.historySendBytes) break;
-        bytes += cost;
-        ++count;
-        textBatch.push_back(entryToJson(entry, false));
+        const size_t uCost = stEntry.text.size() + stEntry.name.size() + 64;
+        if (uBytes + uCost > stCfg.historySendBytes) break;
+        uBytes += uCost;
+        ++uCount;
+        stTextBatch.push_back(entryToJson(stEntry, false));
     }
 
-    if (!textBatch.empty()) {
-        std::reverse(textBatch.begin(), textBatch.end());
-        Json resp = Json::object();
-        resp["room"] = room.id();
-        resp["messages"] = textBatch;
-        m_stCtx.sendTo(s, OpCode_EN::HistoryResp, resp);
+    if (!stTextBatch.empty()) {
+        std::reverse(stTextBatch.begin(), stTextBatch.end());
+        Json stResp = Json::object();
+        stResp["room"] = stRoom.id();
+        stResp["messages"] = stTextBatch;
+        m_stCtx.sendTo(stS, OpCode_EN::HistoryResp, stResp);
     }
 
     /* voices 里是「新 -> 旧」，反转成时间正序 */
-    std::reverse(voices.begin(), voices.end());
-    for (const HistoryEntry_S* entry : voices) {
-        Json one = Json::array();
-        one.push_back(entryToJson(*entry, true));
-        Json resp = Json::object();
-        resp["room"] = room.id();
-        resp["messages"] = one;
-        m_stCtx.sendTo(s, OpCode_EN::HistoryResp, resp);
+    std::reverse(pVoices.begin(), pVoices.end());
+    for (const HistoryEntry_S* stEntry : pVoices) {
+        Json stOne = Json::array();
+        stOne.push_back(entryToJson(*stEntry, true));
+        Json stResp = Json::object();
+        stResp["room"] = stRoom.id();
+        stResp["messages"] = stOne;
+        m_stCtx.sendTo(stS, OpCode_EN::HistoryResp, stResp);
     }
 
     LOG_DEBUG("session#%llu got %zu text + %zu voice history of room '%s'",
-              static_cast<unsigned long long>(s.id()), textBatch.size(), voices.size(),
-              room.id().c_str());
+              static_cast<unsigned long long>(stS.id()), stTextBatch.size(), pVoices.size(),
+              stRoom.id().c_str());
 }
 
 /* namespace dp */

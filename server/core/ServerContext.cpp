@@ -14,45 +14,67 @@
 
 namespace dp {
 
+/*
+ * 功能描述:  构造 CServerContext 对象，完成成员初始化与依赖注入。
+ * 作者:      JaTin
+ * return:    无返回值（构造函数或析构函数）。
+ */
 CServerContext::CServerContext(ServerConfig_S cfg) : m_stCfg(std::move(cfg)) {}
 
 CServerContext::~CServerContext() = default;
 
 /*
- * 功能描述:  执行 sendTo 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  发送to；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [out]  session  参数。
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    void
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   stPayload        协议载荷内容，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CServerContext::sendTo(CSession& session, OpCode_EN op, const Json& payload) {
+void CServerContext::sendTo(CSession& stSession, OpCode_EN enOp, const Json& stPayload) {
     if (reactor_ == nullptr) return;
-    reactor_->sendTo(session, op, payload);
-}
-
-void CServerContext::sendError(CSession& session, const std::string& code,
-                              const std::string& text) {
-    if (reactor_ == nullptr) return;
-    reactor_->sendError(session, code, text);
-}
-
-void CServerContext::broadcastRoom(const std::string& roomId, OpCode_EN op, const Json& payload,
-                                  uint64_t exceptId) {
-    if (reactor_ == nullptr) return;
-    reactor_->broadcastRoom(roomId, op, payload, exceptId);
+    reactor_->sendTo(stSession, enOp, stPayload);
 }
 
 /*
- * 功能描述:  执行 requestClose 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  发送错误。
  * 作者:      JaTin
- * param [out]  session  参数。
- * param [in]  reason  参数。
- * return:    void
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   strCode          输入数据，类型 const std::string&。
+ * param [in]   strText          消息文本，类型 const std::string&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CServerContext::requestClose(CSession& session, const std::string& reason) {
+void CServerContext::sendError(CSession& stSession, const std::string& strCode,
+                              const std::string& strText) {
     if (reactor_ == nullptr) return;
-    reactor_->requestClose(session, reason);
+    reactor_->sendError(stSession, strCode, strText);
+}
+
+/*
+ * 功能描述:  广播房间。
+ * 作者:      JaTin
+ * param [in]   strRoomId        输入数据，类型 const std::string&。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   stPayload        协议载荷内容，类型 const Json&。
+ * param [in]   uExceptId        输入数据，类型 uint64_t。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
+ */
+void CServerContext::broadcastRoom(const std::string& strRoomId, OpCode_EN enOp, const Json& stPayload,
+                                  uint64_t uExceptId) {
+    if (reactor_ == nullptr) return;
+    reactor_->broadcastRoom(strRoomId, enOp, stPayload, uExceptId);
+}
+
+/*
+ * 功能描述:  请求close。
+ * 作者:      JaTin
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   strReason        失败原因描述，类型 const std::string&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
+ */
+void CServerContext::requestClose(CSession& stSession, const std::string& strReason) {
+    if (reactor_ == nullptr) return;
+    reactor_->requestClose(stSession, strReason);
 }
 
 /* namespace dp */

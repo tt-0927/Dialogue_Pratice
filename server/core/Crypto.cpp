@@ -31,137 +31,145 @@ constexpr std::array<uint32_t, 64> kRoundConstants = {
 
 /* 32 位循环右移。 */
 /*
- * 功能描述:  执行 rotr 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取rotr。
  * 作者:      JaTin
- * param [in]  value  参数。
- * param [in]  bits  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uValue           待设置的数值，类型 uint32_t。
+ * param [in]   nBits            输入数据，类型 int。
+ * return:    返回 inline uint32_t 类型的处理结果，具体含义见功能描述。
  */
-inline uint32_t rotr(uint32_t value, int bits) {
-    return (value >> bits) | (value << (32 - bits));
+inline uint32_t rotr(uint32_t uValue, int nBits) {
+    return (uValue >> nBits) | (uValue << (32 - nBits));
 }
 
 /* namespace */
 }
 
 /*
- * 功能描述:  执行 sha256Hex 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取sha256hex。
  * 作者:      JaTin
- * param [in]  data  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strData          原始字节数据，类型 const std::string&。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string sha256Hex(const std::string& data) {
-    std::array<uint32_t, 8> hash = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+std::string sha256Hex(const std::string& strData) {
+    std::array<uint32_t, 8> uHash = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
 
     /* ---- 填充：0x80 + 若干 0 + 64 位大端比特长度 ---- */
-    std::vector<uint8_t> message(data.begin(), data.end());
-    const uint64_t bitLength = static_cast<uint64_t>(message.size()) * 8;
-    message.push_back(0x80);
-    while (message.size() % 64 != 56) message.push_back(0x00);
+    std::vector<uint8_t> uMessage(strData.begin(), strData.end());
+    const uint64_t uBitLength = static_cast<uint64_t>(uMessage.size()) * 8;
+    uMessage.push_back(0x80);
+    while (uMessage.size() % 64 != 56) uMessage.push_back(0x00);
     for (int i = 7; i >= 0; --i) {
-        message.push_back(static_cast<uint8_t>((bitLength >> (i * 8)) & 0xFF));
+        uMessage.push_back(static_cast<uint8_t>((uBitLength >> (i * 8)) & 0xFF));
     }
 
     /* ---- 逐块压缩 ---- */
-    for (size_t offset = 0; offset < message.size(); offset += 64) {
-        uint32_t w[64] = {0};
+    for (size_t offset = 0; offset < uMessage.size(); offset += 64) {
+        uint32_t uW[64] = {0};
         for (int i = 0; i < 16; ++i) {
-            const size_t p = offset + static_cast<size_t>(i) * 4;
-            w[i] = (static_cast<uint32_t>(message[p]) << 24)
-                   | (static_cast<uint32_t>(message[p + 1]) << 16)
-                   | (static_cast<uint32_t>(message[p + 2]) << 8)
-                   | static_cast<uint32_t>(message[p + 3]);
+            const size_t uP = offset + static_cast<size_t>(i) * 4;
+            uW[i] = (static_cast<uint32_t>(uMessage[uP]) << 24)
+                   | (static_cast<uint32_t>(uMessage[uP + 1]) << 16)
+                   | (static_cast<uint32_t>(uMessage[uP + 2]) << 8)
+                   | static_cast<uint32_t>(uMessage[uP + 3]);
         }
         for (int i = 16; i < 64; ++i) {
-            const uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
-            const uint32_t s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
-            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+            const uint32_t uS0 = rotr(uW[i - 15], 7) ^ rotr(uW[i - 15], 18) ^ (uW[i - 15] >> 3);
+            const uint32_t uS1 = rotr(uW[i - 2], 17) ^ rotr(uW[i - 2], 19) ^ (uW[i - 2] >> 10);
+            uW[i] = uW[i - 16] + uS0 + uW[i - 7] + uS1;
         }
 
-        uint32_t a = hash[0], b = hash[1], c = hash[2], d = hash[3];
-        uint32_t e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+        uint32_t uA = uHash[0], b = uHash[1], c = uHash[2], d = uHash[3];
+        uint32_t stE = uHash[4], f = uHash[5], g = uHash[6], stH = uHash[7];
 
         for (int i = 0; i < 64; ++i) {
-            const uint32_t s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-            const uint32_t ch = (e & f) ^ (~e & g);
-            const uint32_t temp1 = h + s1 + ch + kRoundConstants[i] + w[i];
-            const uint32_t s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-            const uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
-            const uint32_t temp2 = s0 + maj;
+            const uint32_t uS1 = rotr(stE, 6) ^ rotr(stE, 11) ^ rotr(stE, 25);
+            const uint32_t uCh = (stE & f) ^ (~stE & g);
+            const uint32_t uTemp1 = stH + uS1 + uCh + kRoundConstants[i] + uW[i];
+            const uint32_t uS0 = rotr(uA, 2) ^ rotr(uA, 13) ^ rotr(uA, 22);
+            const uint32_t uMaj = (uA & b) ^ (uA & c) ^ (b & c);
+            const uint32_t uTemp2 = uS0 + uMaj;
 
-            h = g; g = f; f = e; e = d + temp1;
-            d = c; c = b; b = a; a = temp1 + temp2;
+            stH = g; g = f; f = stE; stE = d + uTemp1;
+            d = c; c = b; b = uA; uA = uTemp1 + uTemp2;
         }
 
-        hash[0] += a; hash[1] += b; hash[2] += c; hash[3] += d;
-        hash[4] += e; hash[5] += f; hash[6] += g; hash[7] += h;
+        uHash[0] += uA; uHash[1] += b; uHash[2] += c; uHash[3] += d;
+        uHash[4] += stE; uHash[5] += f; uHash[6] += g; uHash[7] += stH;
     }
 
     /* ---- 转十六进制 ---- */
-    static const char* kHex = "0123456789abcdef";
-    std::string out;
-    out.reserve(64);
-    for (uint32_t word : hash) {
+    static const char* strKHex = "0123456789abcdef";
+    std::string strOut;
+    strOut.reserve(64);
+    for (uint32_t uWord : uHash) {
         for (int shift = 28; shift >= 0; shift -= 4) {
-            out.push_back(kHex[(word >> shift) & 0xF]);
+            strOut.push_back(strKHex[(uWord >> shift) & 0xF]);
         }
     }
-    return out;
+    return strOut;
 }
 
 /*
- * 功能描述:  执行 randomSalt 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取randomsalt。
  * 作者:      JaTin
- * param [in]  bytes  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uBytes           字节数，类型 size_t。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string randomSalt(size_t bytes) {
-    std::string raw;
-    raw.resize(bytes);
+std::string randomSalt(size_t uBytes) {
+    std::string strRaw;
+    strRaw.resize(uBytes);
 
     if (FILE* fp = std::fopen("/dev/urandom", "rb")) {
-        const size_t got = std::fread(raw.data(), 1, bytes, fp);
+        const size_t uGot = std::fread(strRaw.data(), 1, uBytes, fp);
         std::fclose(fp);
-        if (got == bytes) {
-            static const char* kHex = "0123456789abcdef";
-            std::string out;
-            out.reserve(bytes * 2);
-            for (unsigned char c : raw) {
-                out.push_back(kHex[c >> 4]);
-                out.push_back(kHex[c & 0xF]);
+        if (uGot == uBytes) {
+            static const char* strKHex = "0123456789abcdef";
+            std::string strOut;
+            strOut.reserve(uBytes * 2);
+            for (unsigned char c : strRaw) {
+                strOut.push_back(strKHex[c >> 4]);
+                strOut.push_back(strKHex[c & 0xF]);
             }
-            return out;
+            return strOut;
         }
     }
 
     /* 兜底：没有 urandom 时用时间 + 栈地址混合。安全性差，仅保证系统能起来。 */
     std::fprintf(stderr, "[crypto] /dev/urandom 不可用，盐的随机性下降\n");
-    const uint64_t seed = static_cast<uint64_t>(std::time(nullptr))
-                          ^ reinterpret_cast<uintptr_t>(&raw);
-    return sha256Hex(std::to_string(seed)).substr(0, bytes * 2);
+    const uint64_t uSeed = static_cast<uint64_t>(std::time(nullptr))
+                          ^ reinterpret_cast<uintptr_t>(&strRaw);
+    return sha256Hex(std::to_string(uSeed)).substr(0, uBytes * 2);
 }
 
 /*
- * 功能描述:  执行 hashPassword 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  计算摘要密码。
  * 作者:      JaTin
- * param [in]  salt  参数。
- * param [in]  password  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strSalt          输入数据，类型 const std::string&。
+ * param [in]   strPassword      登录密码，类型 const std::string&。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string hashPassword(const std::string& salt, const std::string& password) {
-    return sha256Hex(salt + ":" + password);
+std::string hashPassword(const std::string& strSalt, const std::string& strPassword) {
+    return sha256Hex(strSalt + ":" + strPassword);
 }
 
-bool verifyPassword(const std::string& salt, const std::string& password,
-                    const std::string& expected) {
-    const std::string actual = hashPassword(salt, password);
-    if (actual.size() != expected.size()) return false;
+/*
+ * 功能描述:  校验密码；失败时返回 false。
+ * 作者:      JaTin
+ * param [in]   strSalt          输入数据，类型 const std::string&。
+ * param [in]   strPassword      登录密码，类型 const std::string&。
+ * param [in]   strExpected      输入数据，类型 const std::string&。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
+ */
+bool verifyPassword(const std::string& strSalt, const std::string& strPassword,
+                    const std::string& strExpected) {
+    const std::string strActual = hashPassword(strSalt, strPassword);
+    if (strActual.size() != strExpected.size()) return false;
 
     /* 常量时间比较：长度相同的前提下不提前返回，避免时间侧信道 */
     unsigned char diff = 0;
-    for (size_t i = 0; i < actual.size(); ++i) {
-        diff |= static_cast<unsigned char>(actual[i] ^ expected[i]);
+    for (size_t i = 0; i < strActual.size(); ++i) {
+        diff |= static_cast<unsigned char>(strActual[i] ^ strExpected[i]);
     }
     return diff == 0;
 }

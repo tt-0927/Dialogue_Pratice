@@ -29,76 +29,75 @@ bool g_colorInit = false;
 }
 
 /*
- * 功能描述:  执行 instance 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取instance。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回 CLogger& 类型的处理结果，具体含义见功能描述。
  */
 CLogger& CLogger::instance() {
-    static CLogger inst;
-    return inst;
+    static CLogger stInst;
+    return stInst;
 }
 
 /*
- * 功能描述:  执行 parseLevel 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  把日志级别字符串解析为日志级别枚举值。
  * 作者:      JaTin
- * param [in]  s  参数。
- * param [out]  out  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strS             目标会话对象，类型 const char*。
+ * param [out]  enOut            输入数据，类型 LogLevel_EN&。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CLogger::parseLevel(const char* s, LogLevel_EN& out) {
-    if (s == nullptr) return false;
-    if (std::strcmp(s, "debug") == 0) { out = LogLevel_EN::Debug; return true; }
-    if (std::strcmp(s, "info")  == 0) { out = LogLevel_EN::Info;  return true; }
-    if (std::strcmp(s, "warn")  == 0) { out = LogLevel_EN::Warn;  return true; }
-    if (std::strcmp(s, "error") == 0) { out = LogLevel_EN::Error; return true; }
+bool CLogger::parseLevel(const char* strS, LogLevel_EN& enOut) {
+    if (strS == nullptr) return false;
+    if (std::strcmp(strS, "debug") == 0) { enOut = LogLevel_EN::Debug; return true; }
+    if (std::strcmp(strS, "info")  == 0) { enOut = LogLevel_EN::Info;  return true; }
+    if (std::strcmp(strS, "warn")  == 0) { enOut = LogLevel_EN::Warn;  return true; }
+    if (std::strcmp(strS, "error") == 0) { enOut = LogLevel_EN::Error; return true; }
     return false;
 }
 
 /*
- * 功能描述:  执行 write 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  按日志级别格式化并输出一条日志。
  * 作者:      JaTin
- * param [in]  lv  参数。
- * param [in]  fmt  参数。
- * param [in]  param  参数。
- * return:    void
+ * param [in]   enLv             输入数据，类型 LogLevel_EN。
+ * param [in]   strFmt           格式化字符串，类型 const char*。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CLogger::write(LogLevel_EN lv, const char* fmt, ...) {
-    if (lv < m_stLevel) return;
+void CLogger::write(LogLevel_EN enLv, const char* strFmt, ...) {
+    if (enLv < m_stLevel) return;
 
-    char msg[2048];
-    va_list ap;
-    va_start(ap, fmt);
-    std::vsnprintf(msg, sizeof(msg), fmt, ap);
-    va_end(ap);
+    char chMsg[2048];
+    va_list stAp;
+    va_start(stAp, strFmt);
+    std::vsnprintf(chMsg, sizeof(chMsg), strFmt, stAp);
+    va_end(stAp);
 
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t secs = std::chrono::system_clock::to_time_t(now);
-    const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            now.time_since_epoch()).count() % 1000;
+    const auto stNow = std::chrono::system_clock::now();
+    const std::time_t stSecs = std::chrono::system_clock::to_time_t(stNow);
+    const auto stMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            stNow.time_since_epoch()).count() % 1000;
 
-    std::tm tm{};
-    localtime_r(&secs, &tm);
-    char ts[32];
-    std::strftime(ts, sizeof(ts), "%H:%M:%S", &tm);
+    std::tm stTm{};
+    localtime_r(&stSecs, &stTm);
+    char chTs[32];
+    std::strftime(chTs, sizeof(chTs), "%H:%M:%S", &stTm);
 
-    const char* tag = "INFO ";
-    const char* color = "";
-    switch (lv) {
-        case LogLevel_EN::Debug: tag = "DEBUG"; color = "\033[36m"; break;
-        case LogLevel_EN::Info:  tag = "INFO "; color = "\033[32m"; break;
-        case LogLevel_EN::Warn:  tag = "WARN "; color = "\033[33m"; break;
-        case LogLevel_EN::Error: tag = "ERROR"; color = "\033[31m"; break;
+    const char* strTag = "INFO ";
+    const char* strColor = "";
+    switch (enLv) {
+        case LogLevel_EN::Debug: strTag = "DEBUG"; strColor = "\033[36m"; break;
+        case LogLevel_EN::Info:  strTag = "INFO "; strColor = "\033[32m"; break;
+        case LogLevel_EN::Warn:  strTag = "WARN "; strColor = "\033[33m"; break;
+        case LogLevel_EN::Error: strTag = "ERROR"; strColor = "\033[31m"; break;
     }
 
-    std::lock_guard<std::mutex> lock(g_mu);
+    std::lock_guard<std::mutex> stLock(g_mu);
     if (!g_colorInit) {
         g_color = ::isatty(STDOUT_FILENO) != 0;
         g_colorInit = true;
     }
     if (g_color) {
-        std::fprintf(stdout, "%s.%03d %s%s\033[0m %s\n", ts, static_cast<int>(millis), color, tag, msg);
+        std::fprintf(stdout, "%s.%03d %s%s\033[0m %s\n", chTs, static_cast<int>(stMillis), strColor, strTag, chMsg);
     } else {
-        std::fprintf(stdout, "%s.%03d %s %s\n", ts, static_cast<int>(millis), tag, msg);
+        std::fprintf(stdout, "%s.%03d %s %s\n", chTs, static_cast<int>(stMillis), strTag, chMsg);
     }
     std::fflush(stdout);
 }

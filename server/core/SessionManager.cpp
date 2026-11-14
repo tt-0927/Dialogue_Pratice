@@ -14,39 +14,39 @@
 namespace dp {
 
 /*
- * 功能描述:  执行 add 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  添加add。
  * 作者:      JaTin
- * param [in]  fd  参数。
- * param [in]  peer  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   hFd              文件描述符，类型 int。
+ * param [in]   strPeer          输入数据，类型 std::string。
+ * return:    成功返回对象指针；未找到或失败时返回 nullptr。
  */
-CSession* CSessionManager::add(int fd, std::string peer) {
-    const uint64_t id = m_uNextId++;
-    auto session = std::make_unique<CSession>(fd, id, std::move(peer));
-    CSession* raw = session.get();
-    m_uStore.emplace(id, std::move(session));
-    return raw;
+CSession* CSessionManager::add(int hFd, std::string strPeer) {
+    const uint64_t uId = m_uNextId++;
+    auto stSession = std::make_unique<CSession>(hFd, uId, std::move(strPeer));
+    CSession* pRaw = stSession.get();
+    m_uStore.emplace(uId, std::move(stSession));
+    return pRaw;
 }
 
 /*
- * 功能描述:  执行 find 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  查找find。
  * 作者:      JaTin
- * param [in]  id  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uId              编号，类型 uint64_t。
+ * return:    成功返回对象指针；未找到或失败时返回 nullptr。
  */
-CSession* CSessionManager::find(uint64_t id) {
-    auto it = m_uStore.find(id);
-    return it == m_uStore.end() ? nullptr : it->second.get();
+CSession* CSessionManager::find(uint64_t uId) {
+    auto stIt = m_uStore.find(uId);
+    return stIt == m_uStore.end() ? nullptr : stIt->second.get();
 }
 
 /*
- * 功能描述:  执行 remove 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  移除remove。
  * 作者:      JaTin
- * param [in]  id  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uId              编号，类型 uint64_t。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CSessionManager::remove(uint64_t id) {
-    return m_uStore.erase(id) > 0;
+bool CSessionManager::remove(uint64_t uId) {
+    return m_uStore.erase(uId) > 0;
 }
 
 /* namespace dp */

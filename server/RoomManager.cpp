@@ -12,43 +12,43 @@
 namespace dp {
 
 /*
- * 功能描述:  执行 getOrCreate 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取orcreate。
  * 作者:      JaTin
- * param [in]  id  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strId            编号，类型 const std::string&。
+ * return:    返回 CRoom& 类型的处理结果，具体含义见功能描述。
  */
-CRoom& CRoomManager::getOrCreate(const std::string& id) {
-    auto it = rooms_.find(id);
-    if (it != rooms_.end()) return *it->second;
+CRoom& CRoomManager::getOrCreate(const std::string& strId) {
+    auto stIt = rooms_.find(strId);
+    if (stIt != rooms_.end()) return *stIt->second;
 
-    auto room = std::make_unique<CRoom>(id);
-    CRoom* raw = room.get();
-    rooms_.emplace(id, std::move(room));
-    return *raw;
+    auto stRoom = std::make_unique<CRoom>(strId);
+    CRoom* pRaw = stRoom.get();
+    rooms_.emplace(strId, std::move(stRoom));
+    return *pRaw;
 }
 
 /*
- * 功能描述:  执行 find 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  查找find。
  * 作者:      JaTin
- * param [in]  id  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strId            编号，类型 const std::string&。
+ * return:    成功返回对象指针；未找到或失败时返回 nullptr。
  */
-CRoom* CRoomManager::find(const std::string& id) {
-    auto it = rooms_.find(id);
-    return it == rooms_.end() ? nullptr : it->second.get();
+CRoom* CRoomManager::find(const std::string& strId) {
+    auto stIt = rooms_.find(strId);
+    return stIt == rooms_.end() ? nullptr : stIt->second.get();
 }
 
 /*
- * 功能描述:  执行 removeIfEmpty 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  移除ifempty；失败时返回 false。
  * 作者:      JaTin
- * param [in]  id  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strId            编号，类型 const std::string&。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CRoomManager::removeIfEmpty(const std::string& id) {
-    auto it = rooms_.find(id);
-    if (it == rooms_.end()) return false;
-    if (!it->second->empty()) return false;
-    rooms_.erase(it);
+bool CRoomManager::removeIfEmpty(const std::string& strId) {
+    auto stIt = rooms_.find(strId);
+    if (stIt == rooms_.end()) return false;
+    if (!stIt->second->empty()) return false;
+    rooms_.erase(stIt);
     return true;
 }
 

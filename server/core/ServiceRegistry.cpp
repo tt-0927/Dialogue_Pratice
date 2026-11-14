@@ -13,72 +13,72 @@
 namespace dp {
 
 /*
- * 功能描述:  执行 instance 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取instance。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回 CServiceRegistry& 类型的处理结果，具体含义见功能描述。
  */
 CServiceRegistry& CServiceRegistry::instance() {
-    static CServiceRegistry registry;
-    return registry;
+    static CServiceRegistry stRegistry;
+    return stRegistry;
 }
 
 /*
- * 功能描述:  执行 registerService 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  注册业务服务；实现上异常路径记录错误或警告日志。
  * 作者:      JaTin
- * param [in]  service  参数。
- * return:    void
+ * param [in]   stService        业务服务，类型 std::unique_ptr<CService>。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CServiceRegistry::registerService(std::unique_ptr<CService> service) {
-    if (service == nullptr) {
+void CServiceRegistry::registerService(std::unique_ptr<CService> stService) {
+    if (stService == nullptr) {
         LOG_WARN("registerService: null service ignored");
         return;
     }
 
-    const std::vector<OpCode_EN> ops = service->opcodes();
-    if (ops.empty()) {
+    const std::vector<OpCode_EN> aOps = stService->opcodes();
+    if (aOps.empty()) {
         LOG_WARN("registerService: service declares no opcode, ignored");
         return;
     }
 
     /* 先整体检查冲突，避免「注册了一半才发现重复」导致部分 opcode 生效。 */
-    for (OpCode_EN op : ops) {
-        if (m_aIndex.find(op) != m_aIndex.end()) {
+    for (OpCode_EN enOp : aOps) {
+        if (m_aIndex.find(enOp) != m_aIndex.end()) {
             LOG_ERROR("registerService: opcode %s already registered, "
-                      "the whole service is rejected", opCodeName(op));
+                      "the whole service is rejected", opCodeName(enOp));
             return;
         }
     }
 
-    CService* raw = service.get();
-    for (OpCode_EN op : ops) {
-        m_aIndex.emplace(op, raw);
+    CService* pRaw = stService.get();
+    for (OpCode_EN enOp : aOps) {
+        m_aIndex.emplace(enOp, pRaw);
     }
-    m_aOwned.push_back(std::move(service));
+    m_aOwned.push_back(std::move(stService));
 
     LOG_DEBUG("service registered (%zu instance(s), %zu opcode mapping(s))",
               m_aOwned.size(), m_aIndex.size());
 }
 
 /*
- * 功能描述:  执行 dispatch 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  分发dispatch；失败时返回 false。
  * 作者:      JaTin
- * param [out]  session  参数。
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    返回值，含义见功能描述。
+ * param [out]  stSession        目标会话对象，类型 CSession&。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   stPayload        协议载荷内容，类型 const Json&。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CServiceRegistry::dispatch(CSession& session, OpCode_EN op, const Json& payload) {
-    auto it = m_aIndex.find(op);
-    if (it == m_aIndex.end()) return false;
+bool CServiceRegistry::dispatch(CSession& stSession, OpCode_EN enOp, const Json& stPayload) {
+    auto stIt = m_aIndex.find(enOp);
+    if (stIt == m_aIndex.end()) return false;
 
-    it->second->handle(session, op, payload);
+    stIt->second->handle(stSession, enOp, stPayload);
     return true;
 }
 
 /*
- * 功能描述:  执行 clear 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  清空clear。
  * 作者:      JaTin
- * return:    void
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
 void CServiceRegistry::clear() {
     m_aIndex.clear();

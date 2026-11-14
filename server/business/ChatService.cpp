@@ -15,80 +15,79 @@
 namespace dp {
 
 /*
- * 功能描述:  执行 opcodes 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  返回本业务服务所处理的协议操作码列表。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回 std::vector<OpCode_EN> 类型的处理结果，具体含义见功能描述。
  */
 std::vector<OpCode_EN> ChatService::opcodes() const {
     return {OpCode_EN::Chat};
 }
 
 /*
- * 功能描述:  执行 handle 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  按操作码分发并处理一条业务请求。
  * 作者:      JaTin
- * param [out]  s  参数。
- * param [in]  op  参数。
- * param [in]  j  参数。
- * return:    void
+ * param [out]  stS              目标会话对象，类型 CSession&。
+ * param [in]   stJ              输入数据，类型 const Json&。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void ChatService::handle(CSession& s, OpCode_EN /*op*/, const Json& j) {
-    if (!s.loggedIn()) {
-        m_stCtx.sendError(s, "not_logged_in", "login first");
+void ChatService::handle(CSession& stS, OpCode_EN /*op*/, const Json& stJ) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
         return;
     }
-    if (s.room().empty()) {
-        m_stCtx.sendError(s, "not_in_room", "join a room before sending messages");
+    if (stS.room().empty()) {
+        m_stCtx.sendError(stS, "not_in_room", "join a room before sending messages");
         return;
     }
-    if (!j.contains("text") || !j["text"].is_string()) {
-        m_stCtx.sendError(s, "bad_payload", "field 'text' (string) is required");
+    if (!stJ.contains("text") || !stJ["text"].is_string()) {
+        m_stCtx.sendError(stS, "bad_payload", "field 'text' (string) is required");
         return;
     }
-    const std::string text = j["text"].get<std::string>();
-    if (!validText(text)) {
-        m_stCtx.sendError(s, "bad_text", "text must be 1..4000 bytes");
+    const std::string strText = stJ["text"].get<std::string>();
+    if (!validText(strText)) {
+        m_stCtx.sendError(stS, "bad_text", "text must be 1..4000 bytes");
         return;
     }
 
-    const std::string roomId = s.room();
-    const uint64_t seq = m_stCtx.nextSeq();
-    const int64_t  ts  = static_cast<int64_t>(nowMs());
+    const std::string strRoomId = stS.room();
+    const uint64_t uSeq = m_stCtx.nextSeq();
+    const int64_t  lTs  = static_cast<int64_t>(nowMs());
 
-    Json push = Json::object();
-    push["seq"]  = seq;
-    push["from"] = s.id();
-    push["name"] = s.name();
-    push["room"] = roomId;
-    push["text"] = text;
-    push["ts"]   = ts;
+    Json stPush = Json::object();
+    stPush["seq"]  = uSeq;
+    stPush["from"] = stS.id();
+    stPush["name"] = stS.name();
+    stPush["room"] = strRoomId;
+    stPush["text"] = strText;
+    stPush["ts"]   = lTs;
 
     /* 先落历史再广播：后进房的人一定能看到这条消息，不会出现「广播了但没存」的窗口。 */
-    HistoryEntry_S entry;
-    entry.seq  = seq;
-    entry.from = s.id();
-    entry.name = s.name();
-    entry.text = text;
-    entry.kind = HistoryKind_EN::Text;
-    entry.ts   = ts;
+    HistoryEntry_S stEntry;
+    stEntry.seq  = uSeq;
+    stEntry.from = stS.id();
+    stEntry.name = stS.name();
+    stEntry.text = strText;
+    stEntry.kind = HistoryKind_EN::Text;
+    stEntry.ts   = lTs;
 
     /* 持久化：先落库（进程重启不丢），再进内存缓冲（快速回放）。 */
     /* 落库失败不影响聊天，只记日志——消息服务不该被存储问题拖垮。 */
-    std::string dbError;
-    if (!m_stCtx.messages().append(roomId, entry, s.accountId(), &dbError)) {
-        LOG_WARN("写入聊天记录失败：%s", dbError.c_str());
+    std::string strDbError;
+    if (!m_stCtx.messages().append(strRoomId, stEntry, stS.accountId(), &strDbError)) {
+        LOG_WARN("写入聊天记录失败：%s", strDbError.c_str());
     }
 
-    CRoom* room = m_stCtx.rooms().find(roomId);
-    if (room != nullptr) {
-        const ServerConfig_S& cfg = m_stCtx.config();
-        room->appendHistory(std::move(entry), cfg.historyEntries, cfg.historyBytes);
+    CRoom* pRoom = m_stCtx.rooms().find(strRoomId);
+    if (pRoom != nullptr) {
+        const ServerConfig_S& stCfg = m_stCtx.config();
+        pRoom->appendHistory(std::move(stEntry), stCfg.historyEntries, stCfg.historyBytes);
     }
 
     /* 回显给发送者本人：客户端无需本地插入即可保证消息顺序与服务端一致。 */
-    m_stCtx.broadcastRoom(roomId, OpCode_EN::ChatPush, push, 0);
+    m_stCtx.broadcastRoom(strRoomId, OpCode_EN::ChatPush, stPush, 0);
 
     LOG_DEBUG("session#%llu chat %zu B in room '%s'",
-              static_cast<unsigned long long>(s.id()), text.size(), roomId.c_str());
+              static_cast<unsigned long long>(stS.id()), strText.size(), strRoomId.c_str());
 }
 
 /* namespace dp */

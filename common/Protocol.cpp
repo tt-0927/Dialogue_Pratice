@@ -16,29 +16,29 @@ namespace dp {
 namespace {
 
 /*
- * 功能描述:  执行 readU32BE 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  读取32be。
  * 作者:      JaTin
- * param [in]  p  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uP               输入数据，类型 const unsigned char*。
+ * return:    返回 inline uint32_t 类型的处理结果，具体含义见功能描述。
  */
-inline uint32_t readU32BE(const unsigned char* p) {
-    return (static_cast<uint32_t>(p[0]) << 24) |
-           (static_cast<uint32_t>(p[1]) << 16) |
-           (static_cast<uint32_t>(p[2]) << 8)  |
-            static_cast<uint32_t>(p[3]);
+inline uint32_t readU32BE(const unsigned char* uP) {
+    return (static_cast<uint32_t>(uP[0]) << 24) |
+           (static_cast<uint32_t>(uP[1]) << 16) |
+           (static_cast<uint32_t>(uP[2]) << 8)  |
+            static_cast<uint32_t>(uP[3]);
 }
 
 /* namespace */
 }
 
 /*
- * 功能描述:  执行 opCodeName 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取操作码 code 名称。
  * 作者:      JaTin
- * param [in]  op  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * return:    成功返回对象指针；未找到或失败时返回 nullptr。
  */
-const char* opCodeName(OpCode_EN op) {
-    switch (op) {
+const char* opCodeName(OpCode_EN enOp) {
+    switch (enOp) {
         case OpCode_EN::Login:     return "Login";
         case OpCode_EN::JoinRoom:  return "JoinRoom";
         case OpCode_EN::LeaveRoom: return "LeaveRoom";
@@ -64,50 +64,50 @@ const char* opCodeName(OpCode_EN op) {
 }
 
 /*
- * 功能描述:  执行 encodeFrame 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  编码协议帧；实现上校验失败时抛出异常；校验不通过时抛出异常。
  * 作者:      JaTin
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   strPayload       协议载荷内容，类型 const std::string&。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string encodeFrame(OpCode_EN op, const std::string& payload) {
-    if (payload.size() > kMaxPayload) {
+std::string encodeFrame(OpCode_EN enOp, const std::string& strPayload) {
+    if (strPayload.size() > kMaxPayload) {
         throw std::length_error("frame payload exceeds kMaxPayload");
     }
-    const uint32_t len = static_cast<uint32_t>(payload.size() + 1);
+    const uint32_t uLen = static_cast<uint32_t>(strPayload.size() + 1);
 
-    std::string out;
-    out.resize(kHeaderSize + payload.size());
-    out[0] = static_cast<char>((len >> 24) & 0xFF);
-    out[1] = static_cast<char>((len >> 16) & 0xFF);
-    out[2] = static_cast<char>((len >> 8) & 0xFF);
-    out[3] = static_cast<char>(len & 0xFF);
-    out[4] = static_cast<char>(op);
-    if (!payload.empty()) {
-        std::memcpy(&out[kHeaderSize], payload.data(), payload.size());
+    std::string stOut;
+    stOut.resize(kHeaderSize + strPayload.size());
+    stOut[0] = static_cast<char>((uLen >> 24) & 0xFF);
+    stOut[1] = static_cast<char>((uLen >> 16) & 0xFF);
+    stOut[2] = static_cast<char>((uLen >> 8) & 0xFF);
+    stOut[3] = static_cast<char>(uLen & 0xFF);
+    stOut[4] = static_cast<char>(enOp);
+    if (!strPayload.empty()) {
+        std::memcpy(&stOut[kHeaderSize], strPayload.data(), strPayload.size());
     }
-    return out;
+    return stOut;
 }
 
 /*
- * 功能描述:  执行 encodeFrame 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  编码协议帧。
  * 作者:      JaTin
- * param [in]  op  参数。
- * param [in]  payload  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   enOp             协议操作码，类型 OpCode_EN。
+ * param [in]   strPayload       协议载荷内容，类型 const Json&。
+ * return:    返回构造好的字符串；无内容时返回空字符串。
  */
-std::string encodeFrame(OpCode_EN op, const Json& payload) {
-    return encodeFrame(op, payload.dump(-1, ' ', false, Json::error_handler_t::replace));
+std::string encodeFrame(OpCode_EN enOp, const Json& strPayload) {
+    return encodeFrame(enOp, strPayload.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 /*
- * 功能描述:  执行 append 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  追加append。
  * 作者:      JaTin
- * param [in]  data  参数。
- * param [in]  len  参数。
- * return:    void
+ * param [in]   strData          原始字节数据，类型 const char*。
+ * param [in]   uLen             输入数据，类型 size_t。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CFrameDecoder::append(const char* data, size_t len) {
+void CFrameDecoder::append(const char* strData, size_t uLen) {
     if (m_uReadPos > 0 && m_uReadPos == m_strBuf.size()) {
         m_strBuf.clear();
         m_uReadPos = 0;
@@ -115,36 +115,36 @@ void CFrameDecoder::append(const char* data, size_t len) {
         m_strBuf.erase(0, m_uReadPos);
         m_uReadPos = 0;
     }
-    m_strBuf.append(data, len);
+    m_strBuf.append(strData, uLen);
 }
 
 /*
- * 功能描述:  执行 next 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  从接收缓冲区中尝试解出一个完整协议帧。
  * 作者:      JaTin
- * param [out]  out  参数。
- * return:    返回值，含义见功能描述。
+ * param [out]  stOut            输入数据，类型 Frame_S&。
+ * return:    返回 CFrameDecoder::Result_EN 类型的处理结果，具体含义见功能描述。
  */
-CFrameDecoder::Result_EN CFrameDecoder::next(Frame_S& out) {
+CFrameDecoder::Result_EN CFrameDecoder::next(Frame_S& stOut) {
     if (m_strBuf.size() - m_uReadPos < kHeaderSize) {
         return NeedMore;
     }
 
-    const auto* p = reinterpret_cast<const unsigned char*>(m_strBuf.data() + m_uReadPos);
-    const uint32_t len = readU32BE(p);
+    const auto* uP = reinterpret_cast<const unsigned char*>(m_strBuf.data() + m_uReadPos);
+    const uint32_t uLen = readU32BE(uP);
 
-    if (len == 0 || len > kMaxFrameSize) {
-        m_strErr = "invalid frame length: " + std::to_string(len);
+    if (uLen == 0 || uLen > kMaxFrameSize) {
+        m_strErr = "invalid frame length: " + std::to_string(uLen);
         return Fatal;
     }
-    if (m_strBuf.size() - m_uReadPos < static_cast<size_t>(4) + len) {
+    if (m_strBuf.size() - m_uReadPos < static_cast<size_t>(4) + uLen) {
         return NeedMore;
     }
 
-    const auto opByte = static_cast<unsigned char>(m_strBuf[m_uReadPos + 4]);
-    out.op = static_cast<OpCode_EN>(opByte);
-    out.payload.assign(m_strBuf, m_uReadPos + kHeaderSize, len - 1);
+    const auto stOpByte = static_cast<unsigned char>(m_strBuf[m_uReadPos + 4]);
+    stOut.op = static_cast<OpCode_EN>(stOpByte);
+    stOut.payload.assign(m_strBuf, m_uReadPos + kHeaderSize, uLen - 1);
 
-    m_uReadPos += 4 + len;
+    m_uReadPos += 4 + uLen;
     return Ok;
 }
 

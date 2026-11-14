@@ -19,66 +19,67 @@ constexpr size_t kEntryOverhead = 48;
 }
 
 /*
- * 功能描述:  执行 add 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  添加add；失败时返回 false。
  * 作者:      JaTin
- * param [in]  s  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   pS               目标会话对象，类型 CSession*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CRoom::add(CSession* s) {
-    if (s == nullptr) return false;
+bool CRoom::add(CSession* pS) {
+    if (pS == nullptr) return false;
     m_uEmptySince = 0;
-    return m_uMembers.emplace(s->id(), s).second;
+    return m_uMembers.emplace(pS->id(), pS).second;
 }
 
 /*
- * 功能描述:  执行 remove 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  移除remove。
  * 作者:      JaTin
- * param [in]  sessionId  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   uSessionId       输入数据，类型 uint64_t。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CRoom::remove(uint64_t sessionId) {
-    return m_uMembers.erase(sessionId) > 0;
+bool CRoom::remove(uint64_t uSessionId) {
+    return m_uMembers.erase(uSessionId) > 0;
 }
 
 /*
- * 功能描述:  执行 broadcast 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  广播broadcast；实现上向目标会话或整个房间下发数据。
  * 作者:      JaTin
- * param [in]  CSession  参数。
- * return:    void
+ * param [in]   fnSend           输入数据，类型 const std::function<void(CSession&)>&。
+ * param [in]   uExceptId        输入数据，类型 uint64_t。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoom::broadcast(const std::function<void(CSession&)>& send, uint64_t exceptId) const {
-    for (const auto& kv : m_uMembers) {
-        CSession* s = kv.second;
-        if (s == nullptr || s->id() == exceptId) continue;
-        if (s->state() == SessionState_EN::Closing) continue;
-        send(*s);
+void CRoom::broadcast(const std::function<void(CSession&)>& fnSend, uint64_t uExceptId) const {
+    for (const auto& stKv : m_uMembers) {
+        CSession* pS = stKv.second;
+        if (pS == nullptr || pS->id() == uExceptId) continue;
+        if (pS->state() == SessionState_EN::Closing) continue;
+        fnSend(*pS);
     }
 }
 
 /*
- * 功能描述:  执行 appendHistory 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  追加历史消息。
  * 作者:      JaTin
- * param [in]  entry  参数。
- * param [in]  maxEntries  参数。
- * param [in]  maxBytes  参数。
- * return:    void
+ * param [in]   stEntry          条目，类型 HistoryEntry_S。
+ * param [in]   uMaxEntries      输入数据，类型 size_t。
+ * param [in]   uMaxBytes        输入数据，类型 size_t。
+ * return:    无返回值；处理结果通过成员状态或信号对外体现。
  */
-void CRoom::appendHistory(HistoryEntry_S entry, size_t maxEntries, size_t maxBytes) {
+void CRoom::appendHistory(HistoryEntry_S stEntry, size_t uMaxEntries, size_t uMaxBytes) {
     /* 语音条目的 audio 也要计入字节预算，否则一条 40 KB 的语音能把缓冲撑爆 */
-    const auto costOf = [](const HistoryEntry_S& e) {
-        return e.payloadBytes() + e.name.size() + kEntryOverhead;
+    const auto stCostOf = [](const HistoryEntry_S& stE) {
+        return stE.payloadBytes() + stE.name.size() + kEntryOverhead;
     };
 
-    m_uHistoryBytes += costOf(entry);
-    m_stHistory.push_back(std::move(entry));
+    m_uHistoryBytes += stCostOf(stEntry);
+    m_stHistory.push_back(std::move(stEntry));
 
     /* 双重上限：条数优先，其次按字节淘汰最旧的。 */
-    while (m_stHistory.size() > maxEntries) {
-        m_uHistoryBytes -= costOf(m_stHistory.front());
+    while (m_stHistory.size() > uMaxEntries) {
+        m_uHistoryBytes -= stCostOf(m_stHistory.front());
         m_stHistory.pop_front();
     }
-    while (m_uHistoryBytes > maxBytes && m_stHistory.size() > 1) {
-        m_uHistoryBytes -= costOf(m_stHistory.front());
+    while (m_uHistoryBytes > uMaxBytes && m_stHistory.size() > 1) {
+        m_uHistoryBytes -= stCostOf(m_stHistory.front());
         m_stHistory.pop_front();
     }
 }

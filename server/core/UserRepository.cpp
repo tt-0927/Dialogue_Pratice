@@ -39,178 +39,197 @@ constexpr const char* kSelectColumns =
 }
 
 /*
- * 功能描述:  执行 open 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  获取open。
  * 作者:      JaTin
- * param [in]  path  参数。
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strPath          文件路径，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CUserRepository::open(const std::string& path, std::string* error) {
-    return db_.open(path, error);
+bool CUserRepository::open(const std::string& strPath, std::string* pError) {
+    return db_.open(strPath, pError);
 }
 
 /*
- * 功能描述:  执行 ensureSchema 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  确保schema。
  * 作者:      JaTin
- * param [in]  error  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CUserRepository::ensureSchema(std::string* error) {
-    return db_.exec(kSchema, error);
+bool CUserRepository::ensureSchema(std::string* pError) {
+    return db_.exec(kSchema, pError);
 }
 
 /*
- * 功能描述:  执行 readRow 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  读取row；失败时返回 false。
  * 作者:      JaTin
- * param [out]  stmt  参数。
- * param [in]  out  参数。
- * return:    返回值，含义见功能描述。
+ * param [out]  stStmt           输入数据，类型 CStatement&。
+ * param [in]   pOut             输入数据，类型 UserRecord_S*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CUserRepository::readRow(CStatement& stmt, UserRecord_S* out) {
-    if (out == nullptr) return false;
-    out->id = stmt.columnInt64(0);
-    out->username = stmt.columnText(1);
-    out->nickname = stmt.columnText(2);
-    out->age = static_cast<int>(stmt.columnInt64(3));
-    out->description = stmt.columnText(4);
-    out->enabled = stmt.columnInt64(5) != 0;
+bool CUserRepository::readRow(CStatement& stStmt, UserRecord_S* pOut) {
+    if (pOut == nullptr) return false;
+    pOut->id = stStmt.columnInt64(0);
+    pOut->username = stStmt.columnText(1);
+    pOut->nickname = stStmt.columnText(2);
+    pOut->age = static_cast<int>(stStmt.columnInt64(3));
+    pOut->description = stStmt.columnText(4);
+    pOut->enabled = stStmt.columnInt64(5) != 0;
     return true;
 }
 
 /*
- * 功能描述:  执行 findByNickname 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  查找by 昵称。
  * 作者:      JaTin
- * param [in]  nickname  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strNickname      用户昵称，类型 const std::string&。
+ * return:    返回 std::optional<UserRecord_S> 类型的处理结果，具体含义见功能描述。
  */
-std::optional<UserRecord_S> CUserRepository::findByNickname(const std::string& nickname) {
+std::optional<UserRecord_S> CUserRepository::findByNickname(const std::string& strNickname) {
     if (!db_.isOpen()) return std::nullopt;
 
     /* COLLATE NOCASE：用户填昵称时大小写随意，不该因此匹配不到账号。 */
     /* 注意 SQLite 的 NOCASE 只对 ASCII 生效，中文昵称仍是精确匹配。 */
-    CStatement stmt(db_, std::string("SELECT ") + kSelectColumns
+    CStatement stStmt(db_, std::string("SELECT ") + kSelectColumns
                             + " FROM users WHERE nickname = ? COLLATE NOCASE"
                               " AND enabled = 1 LIMIT 1");
-    if (!stmt.ok()) return std::nullopt;
+    if (!stStmt.ok()) return std::nullopt;
 
-    stmt.bindText(1, nickname);
-    if (!stmt.step()) return std::nullopt;
+    stStmt.bindText(1, strNickname);
+    if (!stStmt.step()) return std::nullopt;
 
-    UserRecord_S record;
-    if (!readRow(stmt, &record)) return std::nullopt;
-    return record;
+    UserRecord_S stRecord;
+    if (!readRow(stStmt, &stRecord)) return std::nullopt;
+    return stRecord;
 }
 
 /*
- * 功能描述:  执行 findByUsername 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  查找byusername。
  * 作者:      JaTin
- * param [in]  username  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   strUsername      登录用户名，类型 const std::string&。
+ * return:    返回 std::optional<UserRecord_S> 类型的处理结果，具体含义见功能描述。
  */
-std::optional<UserRecord_S> CUserRepository::findByUsername(const std::string& username) {
+std::optional<UserRecord_S> CUserRepository::findByUsername(const std::string& strUsername) {
     if (!db_.isOpen()) return std::nullopt;
 
-    CStatement stmt(db_, std::string("SELECT ") + kSelectColumns
+    CStatement stStmt(db_, std::string("SELECT ") + kSelectColumns
                             + " FROM users WHERE username = ? LIMIT 1");
-    if (!stmt.ok()) return std::nullopt;
+    if (!stStmt.ok()) return std::nullopt;
 
-    stmt.bindText(1, username);
-    if (!stmt.step()) return std::nullopt;
+    stStmt.bindText(1, strUsername);
+    if (!stStmt.step()) return std::nullopt;
 
-    UserRecord_S record;
-    if (!readRow(stmt, &record)) return std::nullopt;
-    return record;
+    UserRecord_S stRecord;
+    if (!readRow(stStmt, &stRecord)) return std::nullopt;
+    return stRecord;
 }
 
-bool CUserRepository::verifyCredentials(const std::string& username,
-                                       const std::string& password,
-                                       UserRecord_S* out) {
+/*
+ * 功能描述:  校验credentials；失败时返回 false。
+ * 作者:      JaTin
+ * param [in]   strUsername      登录用户名，类型 const std::string&。
+ * param [in]   strPassword      登录密码，类型 const std::string&。
+ * param [in]   pOut             输入数据，类型 UserRecord_S*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
+ */
+bool CUserRepository::verifyCredentials(const std::string& strUsername,
+                                       const std::string& strPassword,
+                                       UserRecord_S* pOut) {
     if (!db_.isOpen()) return false;
 
-    CStatement stmt(db_, "SELECT id, username, nickname, age, description, enabled, "
+    CStatement stStmt(db_, "SELECT id, username, nickname, age, description, enabled, "
                         "password_hash, salt FROM users WHERE username = ? LIMIT 1");
-    if (!stmt.ok()) return false;
+    if (!stStmt.ok()) return false;
 
-    stmt.bindText(1, username);
+    stStmt.bindText(1, strUsername);
     /* 账号不存在 */
-    if (!stmt.step()) return false;
+    if (!stStmt.step()) return false;
 
-    UserRecord_S record;
-    readRow(stmt, &record);
-    if (!record.enabled) return false;
+    UserRecord_S stRecord;
+    readRow(stStmt, &stRecord);
+    if (!stRecord.enabled) return false;
 
-    const std::string expectedHash = stmt.columnText(6);
-    const std::string salt = stmt.columnText(7);
-    if (!verifyPassword(salt, password, expectedHash)) return false;
+    const std::string strExpectedHash = stStmt.columnText(6);
+    const std::string strSalt = stStmt.columnText(7);
+    if (!verifyPassword(strSalt, strPassword, strExpectedHash)) return false;
 
-    if (out != nullptr) *out = record;
+    if (pOut != nullptr) *pOut = stRecord;
     return true;
 }
 
-bool CUserRepository::createUser(const std::string& username, const std::string& password,
-                                const std::string& nickname, int age,
-                                const std::string& description, std::string* error) {
+/*
+ * 功能描述:  创建用户；失败时返回 false。
+ * 作者:      JaTin
+ * param [in]   strUsername      登录用户名，类型 const std::string&。
+ * param [in]   strPassword      登录密码，类型 const std::string&。
+ * param [in]   strNickname      用户昵称，类型 const std::string&。
+ * param [in]   nAge             年龄（0 到 150），类型 int。
+ * param [in]   strDescription   输入数据，类型 const std::string&。
+ * param [in]   pError           错误信息，类型 std::string*。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
+ */
+bool CUserRepository::createUser(const std::string& strUsername, const std::string& strPassword,
+                                const std::string& strNickname, int nAge,
+                                const std::string& strDescription, std::string* pError) {
     if (!db_.isOpen()) {
-        if (error != nullptr) *error = "database not open";
+        if (pError != nullptr) *pError = "database not open";
         return false;
     }
 
-    const std::string salt = randomSalt();
-    const std::string hash = hashPassword(salt, password);
+    const std::string strSalt = randomSalt();
+    const std::string strHash = hashPassword(strSalt, strPassword);
 
-    CStatement stmt(db_, "INSERT INTO users "
+    CStatement stStmt(db_, "INSERT INTO users "
                         "(username, password_hash, salt, nickname, age, description, "
                         " enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)");
-    if (!stmt.ok()) {
-        if (error != nullptr) *error = stmt.error();
+    if (!stStmt.ok()) {
+        if (pError != nullptr) *pError = stStmt.error();
         return false;
     }
 
-    stmt.bindText(1, username);
-    stmt.bindText(2, hash);
-    stmt.bindText(3, salt);
-    stmt.bindText(4, nickname);
-    stmt.bindInt64(5, age);
-    stmt.bindText(6, description);
-    stmt.bindInt64(7, static_cast<int64_t>(nowMs()));
+    stStmt.bindText(1, strUsername);
+    stStmt.bindText(2, strHash);
+    stStmt.bindText(3, strSalt);
+    stStmt.bindText(4, strNickname);
+    stStmt.bindInt64(5, nAge);
+    stStmt.bindText(6, strDescription);
+    stStmt.bindInt64(7, static_cast<int64_t>(nowMs()));
 
-    stmt.step();
-    if (stmt.failed()) {
-        if (error != nullptr) *error = stmt.error();
+    stStmt.step();
+    if (stStmt.failed()) {
+        if (pError != nullptr) *pError = stStmt.error();
         return false;
     }
     return true;
 }
 
 /*
- * 功能描述:  执行 touchLogin 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  更新访问时间login；失败时返回 false。
  * 作者:      JaTin
- * param [in]  userId  参数。
- * return:    返回值，含义见功能描述。
+ * param [in]   lUserId          用户编号，类型 int64_t。
+ * return:    成功返回 true；参数非法或执行失败时返回 false。
  */
-bool CUserRepository::touchLogin(int64_t userId) {
+bool CUserRepository::touchLogin(int64_t lUserId) {
     if (!db_.isOpen()) return false;
 
-    CStatement stmt(db_, "UPDATE users SET last_login_at = ? WHERE id = ?");
-    if (!stmt.ok()) return false;
+    CStatement stStmt(db_, "UPDATE users SET last_login_at = ? WHERE id = ?");
+    if (!stStmt.ok()) return false;
 
-    stmt.bindInt64(1, static_cast<int64_t>(nowMs()));
-    stmt.bindInt64(2, userId);
-    stmt.step();
-    return !stmt.failed();
+    stStmt.bindInt64(1, static_cast<int64_t>(nowMs()));
+    stStmt.bindInt64(2, lUserId);
+    stStmt.step();
+    return !stStmt.failed();
 }
 
 /*
- * 功能描述:  执行 count 相关的处理，完成参数校验、核心逻辑与结果返回。
+ * 功能描述:  统计count。
  * 作者:      JaTin
- * return:    返回值，含义见功能描述。
+ * return:    返回计数或长度；无有效数据时返回 0。
  */
 size_t CUserRepository::count() {
     if (!db_.isOpen()) return 0;
 
-    CStatement stmt(db_, "SELECT COUNT(*) FROM users");
-    if (!stmt.ok() || !stmt.step()) return 0;
-    return static_cast<size_t>(stmt.columnInt64(0));
+    CStatement stStmt(db_, "SELECT COUNT(*) FROM users");
+    if (!stStmt.ok() || !stStmt.step()) return 0;
+    return static_cast<size_t>(stStmt.columnInt64(0));
 }
 
 /* namespace dp */
