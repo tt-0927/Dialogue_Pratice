@@ -3,7 +3,8 @@
  * @brief      用户表访问的实现。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-14 JaTin 增加头像字段、旧库迁移与资料持久化。
  */
 
 #include "server/core/UserRepository.h"
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     nickname      TEXT    NOT NULL,
     age           INTEGER NOT NULL DEFAULT 0,
     description   TEXT    NOT NULL DEFAULT '',
+    avatar        BLOB    NOT NULL DEFAULT X'',
     enabled       INTEGER NOT NULL DEFAULT 1,
     created_at    INTEGER NOT NULL,
     last_login_at INTEGER NOT NULL DEFAULT 0
@@ -37,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_users_nickname ON users(nickname);
  * @brief  查询列顺序必须与 readRow 一致。
  */
 constexpr const char* kSelectColumns =
-    "id, username, nickname, age, description, enabled";
+    "id, username, nickname, age, description, avatar, enabled";
 
 /**
  * @brief  namespace。
@@ -62,7 +64,27 @@ bool CUserRepository::open(const std::string& strPath, std::string* pError) {
  * @author     JaTin
  */
 bool CUserRepository::ensureSchema(std::string* pError) {
-    return db_.exec(kSchema, pError);
+    if (!db_.exec(kSchema, pError)) return false;
+
+    /* 旧版本用户库没有 avatar 列；启动时原地补列，保留既有账号与密码。 */
+    bool nHasAvatar = false;
+    CStatement stStmt(db_, "PRAGMA table_info(users)");
+    if (!stStmt.ok()) {
+        if (pError != nullptr) *pError = stStmt.error();
+        return false;
+    }
+    while (stStmt.step()) {
+        if (stStmt.columnText(1) == "avatar") {
+            nHasAvatar = true;
+            break;
+        }
+    }
+    if (stStmt.failed()) {
+        if (pError != nullptr) *pError = stStmt.error();
+        return false;
+    }
+    if (nHasAvatar) return true;
+    return db_.exec("ALTER TABLE users ADD COLUMN avatar BLOB NOT NULL DEFAULT X''", pError);
 }
 
 /**
@@ -79,7 +101,8 @@ bool CUserRepository::readRow(CStatement& stStmt, UserRecord_S* pOut) {
     pOut->nickname = stStmt.columnText(2);
     pOut->age = static_cast<int>(stStmt.columnInt64(3));
     pOut->description = stStmt.columnText(4);
-    pOut->enabled = stStmt.columnInt64(5) != 0;
+    pOut->m_strAvatar = stStmt.columnBlob(5);
+    pOut->enabled = stStmt.columnInt64(6) != 0;
     return true;
 }
 
@@ -142,7 +165,7 @@ bool CUserRepository::verifyCredentials(const std::string& strUsername,
                                        UserRecord_S* pOut) {
     if (!db_.isOpen()) return false;
 
-    CStatement stStmt(db_, "SELECT id, username, nickname, age, description, enabled, "
+    CStatement stStmt(db_, "SELECT id, username, nickname, age, description, avatar, enabled, "
                         "password_hash, salt FROM users WHERE username = ? LIMIT 1");
     if (!stStmt.ok()) return false;
 
@@ -156,8 +179,8 @@ bool CUserRepository::verifyCredentials(const std::string& strUsername,
     readRow(stStmt, &stRecord);
     if (!stRecord.enabled) return false;
 
-    const std::string strExpectedHash = stStmt.columnText(6);
-    const std::string strSalt = stStmt.columnText(7);
+    const std::string strExpectedHash = stStmt.columnText(7);
+    const std::string strSalt = stStmt.columnText(8);
     if (!verifyPassword(strSalt, strPassword, strExpectedHash)) return false;
 
     if (pOut != nullptr) *pOut = stRecord;
@@ -202,6 +225,39 @@ bool CUserRepository::createUser(const std::string& strUsername, const std::stri
     stStmt.bindText(6, strDescription);
     stStmt.bindInt64(7, static_cast<int64_t>(nowMs()));
 
+    stStmt.step();
+    if (stStmt.failed()) {
+        if (pError != nullptr) *pError = stStmt.error();
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief      持久化昵称、年龄、简介与头像。
+ * @param[in] stUser         完整资料快照，id 为持久账号编号；类型 const UserRecord_S&。
+ * @param[out] pError        更新失败时写入数据库错误原因；类型 std::string*。
+ * @return     更新语句执行成功返回 true，否则返回 false。
+ * @author     JaTin
+ */
+bool CUserRepository::updateProfile(const UserRecord_S& stUser, std::string* pError) {
+    if (!db_.isOpen() || stUser.id <= 0) {
+        if (pError != nullptr) *pError = "database not open or invalid user id";
+        return false;
+    }
+
+    CStatement stStmt(db_, "UPDATE users SET nickname = ?, age = ?, description = ?, "
+                           "avatar = ? WHERE id = ? AND enabled = 1");
+    if (!stStmt.ok()) {
+        if (pError != nullptr) *pError = stStmt.error();
+        return false;
+    }
+
+    stStmt.bindText(1, stUser.nickname);
+    stStmt.bindInt64(2, stUser.age);
+    stStmt.bindText(3, stUser.description);
+    stStmt.bindBlob(4, stUser.m_strAvatar);
+    stStmt.bindInt64(5, stUser.id);
     stStmt.step();
     if (stStmt.failed()) {
         if (pError != nullptr) *pError = stStmt.error();

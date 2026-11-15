@@ -3,7 +3,8 @@
  * @brief      房间领域业务的实现。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-15 JaTin 增加个人历史房间查询与进房访问记录。
  */
 
 #include "server/business/RoomService.h"
@@ -25,7 +26,8 @@ namespace dp {
  * @author     JaTin
  */
 std::vector<OpCode_EN> CRoomService::opcodes() const {
-    return {OpCode_EN::JoinRoom, OpCode_EN::LeaveRoom, OpCode_EN::ListRooms};
+    return {OpCode_EN::JoinRoom, OpCode_EN::LeaveRoom, OpCode_EN::ListRooms,
+            OpCode_EN::ListHistoryRooms};
 }
 
 /**
@@ -41,6 +43,7 @@ void CRoomService::handle(CSession& stSession, OpCode_EN enOp, const Json& stPay
         case OpCode_EN::JoinRoom:  onJoinRoom(stSession, stPayload);  break;
         case OpCode_EN::LeaveRoom: onLeaveRoom(stSession, stPayload); break;
         case OpCode_EN::ListRooms: onListRooms(stSession, stPayload); break;
+        case OpCode_EN::ListHistoryRooms: onListHistoryRooms(stSession, stPayload); break;
         default:                                               break;
     }
 }
@@ -113,6 +116,14 @@ void CRoomService::onJoinRoom(CSession& stS, const Json& stJ) {
     CRoom& stRoom = m_stCtx.rooms().getOrCreate(strRoomId);
     stRoom.add(&stS);
     stS.setRoom(strRoomId);
+
+    /* 持久账号记录一次访问：仅进房未发言也算历史房间。 */
+    if (stS.accountId() > 0) {
+        if (!m_stCtx.messages().recordVisit(stS.accountId(), strRoomId)) {
+            LOG_WARN("session#%llu 记录历史房间 '%s' 失败",
+                     static_cast<unsigned long long>(stS.id()), strRoomId.c_str());
+        }
+    }
 
     Json stState = Json::object();
     stState["room"] = strRoomId;
@@ -193,6 +204,45 @@ void CRoomService::onListRooms(CSession& stS, const Json& /*j*/) {
     Json stResp = Json::object();
     stResp["rooms"] = stList;
     m_stCtx.sendTo(stS, OpCode_EN::RoomList, stResp);
+}
+
+/**
+ * @brief      查询个人历史房间并下发。
+ * @param[out] stS            会话，必须已登录；类型 CSession&。
+ * @return     无返回值；处理结果通过成员状态或信号对外体现。
+ * @author     JaTin
+ */
+void CRoomService::onListHistoryRooms(CSession& stS, const Json& /*j*/) {
+    if (!stS.loggedIn()) {
+        m_stCtx.sendError(stS, "not_logged_in", "login first");
+        return;
+    }
+
+    /**
+     * @brief  历史房间最多下发条数：客户端主页一屏展示足够，也避免大账号全量拉取。
+     */
+    constexpr int nKMaxHistoryRooms = 50;
+
+    Json stList = Json::array();
+    if (stS.accountId() > 0) {
+        const std::vector<VisitedRoom_S> aRooms =
+            m_stCtx.messages().loadVisitedRooms(stS.accountId(), nKMaxHistoryRooms);
+        for (const VisitedRoom_S& stRoom : aRooms) {
+            Json stR = Json::object();
+            stR["room"] = stRoom.roomId;
+            stR["lastSender"] = stRoom.lastSender;
+            stR["lastMessage"] = stRoom.lastMessage;
+            stR["lastTs"] = stRoom.lastTs;
+            stList.push_back(std::move(stR));
+        }
+    }
+
+    Json stResp = Json::object();
+    stResp["rooms"] = stList;
+    m_stCtx.sendTo(stS, OpCode_EN::HistoryRoomList, stResp);
+
+    LOG_DEBUG("session#%llu history rooms: %zu",
+              static_cast<unsigned long long>(stS.id()), stList.size());
 }
 
 /**

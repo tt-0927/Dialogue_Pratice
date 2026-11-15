@@ -3,7 +3,8 @@
  * @brief      房间领域业务：进房、离房、房间列表、历史消息下发。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-15 JaTin 增加个人历史房间查询与进房访问记录。
  */
 
 #pragma once
@@ -15,7 +16,7 @@
 namespace dp {
 
 /**
- * @brief   处理 `JoinRoom` / `LeaveRoom` / `ListRooms` 三类请求，并负责历史回放。
+ * @brief   处理 `JoinRoom` / `LeaveRoom` / `ListRooms` / `ListHistoryRooms` 四类请求，并负责历史回放。
  * @details 房间不需要预建：`JoinRoom` 遇到不存在的房间号就直接创建， 并通过 `RoomState.created` 告知客户端。 历史消息按「文本批量一帧、每条语音单独一帧」下发——一条语音 Base64 后约 30–40 KB，多条塞进同一帧会撞上 64 KiB 的单帧上限。 客户端本就按 seq 增量合并，收到多个 `HistoryResp` 是预期行为。
  * @author  JaTin
  */
@@ -26,7 +27,7 @@ public:
     /**
      * @brief      声明负责的 opcode。
      * @note       本函数无输入参数。
-     * @return     含 JoinRoom、LeaveRoom、ListRooms 的列表。
+     * @return     含 JoinRoom、LeaveRoom、ListRooms、ListHistoryRooms 的列表。
      * @author     JaTin
      */
     std::vector<OpCode_EN> opcodes() const override;
@@ -79,6 +80,16 @@ private:
      * @author     JaTin
      */
     void onListRooms(CSession& session, const Json& j);
+
+    /**
+     * @brief      处理个人历史房间查询。
+     * @details    匿名账号直接返回空列表；持久账号按最近访问时间倒序返回， 仅进房未发言的房间也包含在内。
+     * @param[out] session        会话，必须已登录；类型 CSession&。
+     * @param[in] j              负载（忽略）；类型 const Json&。
+     * @return     无返回值；处理结果通过成员状态或信号对外体现。
+     * @author     JaTin
+     */
+    void onListHistoryRooms(CSession& session, const Json& j);
 
     /**
      * @brief      向刚进房的会话回放历史消息。

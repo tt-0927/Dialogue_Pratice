@@ -3,7 +3,8 @@
  * @brief      用户表的读写。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-14 JaTin 增加头像字段与资料持久化接口。
  */
 
 #pragma once
@@ -46,6 +47,11 @@ struct UserRecord_S {
      * @note   类型 std::string；类/结构体成员变量。
      */
     std::string description;
+    /**
+     * @brief  JPEG 头像二进制；空串表示使用昵称首字头像。
+     * @note   类型 std::string；类/结构体成员变量。
+     */
+    std::string m_strAvatar;
     /**
      * @brief  是否允许登录
      * @note   类型 bool；类/结构体成员变量。
@@ -126,6 +132,15 @@ public:
     bool createUser(const std::string& username, const std::string& password,
                     const std::string& nickname, int age, const std::string& description,
                     std::string* error);
+
+    /**
+     * @brief      持久化昵称、年龄、简介与头像，登录名和密码保持不变。
+     * @param[in] user           完整资料快照，id 必须是持久账号编号；类型 const UserRecord_S&。
+     * @param[out] error         更新失败时写入数据库错误原因；类型 std::string*。
+     * @return     成功更新一行返回 true，否则返回 false。
+     * @author     JaTin
+     */
+    bool updateProfile(const UserRecord_S& user, std::string* error);
 
     /**
      * @brief      记录一次登录时间。

@@ -3,7 +3,8 @@
  * @brief      聊天记录的写入与查询。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-15 JaTin 增加个人历史房间访问记录与查询。
  */
 
 #pragma once
@@ -16,6 +17,38 @@
 #include "server/core/Room.h"
 
 namespace dp {
+
+/**
+ * @brief   一个账号进过的房间及其最近动态（历史房间列表条目）。
+ * @author  JaTin
+ */
+struct VisitedRoom_S {
+    /**
+     * @brief  房间号
+     * @note   类型 std::string；类/结构体成员变量。
+     */
+    std::string roomId;
+    /**
+     * @brief  该账号最后一次进入此房间的时间（毫秒时间戳）
+     * @note   类型 int64_t；类/结构体成员变量。
+     */
+    int64_t lastVisitAt = 0;
+    /**
+     * @brief  房间内最后一条消息的发送者昵称；无消息时为空串
+     * @note   类型 std::string；类/结构体成员变量。
+     */
+    std::string lastSender;
+    /**
+     * @brief  房间内最后一条消息的文本预览；语音消息为 "[语音]"；无消息时为空串
+     * @note   类型 std::string；类/结构体成员变量。
+     */
+    std::string lastMessage;
+    /**
+     * @brief  房间内最后一条消息的时间戳；无消息时为 0
+     * @note   类型 int64_t；类/结构体成员变量。
+     */
+    int64_t lastTs = 0;
+};
 
 /**
  * @brief   聊天记录表的访问对象。
@@ -70,6 +103,25 @@ public:
      * @author     JaTin
      */
     std::vector<HistoryEntry_S> loadRecent(const std::string& roomId, int limit);
+
+    /**
+     * @brief      记录一次「账号进入房间」。
+     * @details    仅进房未发言也算历史房间；重复进入时刷新 last_visit_at。 匿名（accountId <= 0）不记录。
+     * @param[in] accountId     持久账号编号；类型 int64_t。
+     * @param[in] roomId        房间号；类型 const std::string&。
+     * @return     记录成功返回 true；库未打开或执行失败返回 false。
+     * @author     JaTin
+     */
+    bool recordVisit(int64_t accountId, const std::string& roomId);
+
+    /**
+     * @brief      查询一个账号进过的全部房间，按最近访问时间倒序。
+     * @param[in] accountId     持久账号编号；类型 int64_t。
+     * @param[in] limit         最多返回多少条；类型 int。
+     * @return     房间列表；账号无效或无记录时为空。
+     * @author     JaTin
+     */
+    std::vector<VisitedRoom_S> loadVisitedRooms(int64_t accountId, int limit);
 
     /**
      * @brief      记录总数。

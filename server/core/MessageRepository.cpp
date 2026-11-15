@@ -3,7 +3,8 @@
  * @brief      聊天记录表的实现。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-15 JaTin 增加个人历史房间访问记录与查询。
  */
 
 #include "server/core/MessageRepository.h"
@@ -45,6 +46,13 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_room_seq ON messages(room_id, seq);
 CREATE INDEX IF NOT EXISTS idx_messages_account  ON messages(account_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created  ON messages(created_at);
+CREATE TABLE IF NOT EXISTS room_visits (
+    account_id    INTEGER NOT NULL,
+    room_id       TEXT    NOT NULL,
+    last_visit_at INTEGER NOT NULL,
+    PRIMARY KEY(account_id, room_id)
+);
+CREATE INDEX IF NOT EXISTS idx_room_visits_account ON room_visits(account_id, last_visit_at);
 )SQL";
 
 /**
@@ -269,6 +277,72 @@ CREATE TABLE IF NOT EXISTS arch.messages (
 
     db_.exec("DETACH DATABASE arch", nullptr);
     return nArchived;
+}
+
+/**
+ * @brief      记录一次「账号进入房间」。
+ * @param[in] lAccountId     持久账号编号（> 0 才记录）；类型 int64_t。
+ * @param[in] strRoomId      房间号；类型 const std::string&。
+ * @return     记录成功返回 true；库未打开、参数非法或执行失败返回 false。
+ * @author     JaTin
+ */
+bool CMessageRepository::recordVisit(int64_t lAccountId, const std::string& strRoomId) {
+    if (!db_.isOpen() || lAccountId <= 0 || strRoomId.empty()) return false;
+
+    CStatement stStmt(db_, "INSERT INTO room_visits (account_id, room_id, last_visit_at) "
+                           "VALUES (?, ?, ?) "
+                           "ON CONFLICT(account_id, room_id) "
+                           "DO UPDATE SET last_visit_at = excluded.last_visit_at");
+    if (!stStmt.ok()) return false;
+
+    stStmt.bindInt64(1, lAccountId);
+    stStmt.bindText(2, strRoomId);
+    stStmt.bindInt64(3, static_cast<int64_t>(nowMs()));
+    stStmt.step();
+    return !stStmt.failed();
+}
+
+/**
+ * @brief      查询一个账号进过的全部房间，按最近访问时间倒序。
+ * @details    通过对 messages 的 seq 最大值做 LEFT JOIN 带出每个房间的最后一条消息， 没有任何消息的房间（仅进房未发言）仍会返回，消息字段为空。
+ * @param[in] lAccountId     持久账号编号；类型 int64_t。
+ * @param[in] nLimit         最多返回多少条；类型 int。
+ * @return     房间列表；账号无效或无记录时为空。
+ * @author     JaTin
+ */
+std::vector<VisitedRoom_S> CMessageRepository::loadVisitedRooms(int64_t lAccountId, int nLimit) {
+    std::vector<VisitedRoom_S> aOut;
+    if (!db_.isOpen() || lAccountId <= 0 || nLimit <= 0) return aOut;
+
+    CStatement stStmt(db_,
+                      "SELECT v.room_id, v.last_visit_at, m.sender_name, m.kind, m.text, "
+                      " m.created_at "
+                      "FROM room_visits v "
+                      "LEFT JOIN messages m ON m.room_id = v.room_id "
+                      " AND m.seq = (SELECT MAX(mm.seq) FROM messages mm "
+                      "              WHERE mm.room_id = v.room_id) "
+                      "WHERE v.account_id = ? "
+                      "ORDER BY v.last_visit_at DESC LIMIT ?");
+    if (!stStmt.ok()) return aOut;
+
+    stStmt.bindInt64(1, lAccountId);
+    stStmt.bindInt64(2, nLimit);
+
+    while (stStmt.step()) {
+        VisitedRoom_S stRoom;
+        stRoom.roomId = stStmt.columnText(0);
+        stRoom.lastVisitAt = stStmt.columnInt64(1);
+        stRoom.lastSender = stStmt.columnText(2);
+        const bool nIsVoice = stStmt.columnInt64(3) != 0;
+        stRoom.lastMessage = nIsVoice ? "[语音]" : stStmt.columnText(4);
+        stRoom.lastTs = stStmt.columnInt64(5);
+        aOut.push_back(std::move(stRoom));
+    }
+
+    if (stStmt.failed()) {
+        aOut.clear();
+    }
+    return aOut;
 }
 
 /**

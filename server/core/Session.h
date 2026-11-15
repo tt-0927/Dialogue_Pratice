@@ -3,7 +3,8 @@
  * @brief      一条 TCP 连接及其上的身份状态。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-14 JaTin 在会话身份中保存头像数据。
  */
 
 #pragma once
@@ -170,6 +171,16 @@ public:
     void setDesc(std::string d) { m_strDesc = std::move(d); }
 
     /**
+     * @brief  头像图片二进制，空串表示使用昵称首字头像。
+     */
+    const std::string& avatar() const { return m_strAvatar; }
+
+    /**
+     * @brief  设置头像图片二进制，格式与大小由业务层校验。
+     */
+    void setAvatar(std::string strAvatar) { m_strAvatar = std::move(strAvatar); }
+
+    /**
      * @brief  当前所在房间号，空串表示不在任何房间。
      */
     const std::string& room() const { return m_strRoom; }
@@ -300,6 +311,11 @@ private:
      * @note   类型 std::string；类/结构体成员变量。
      */
     std::string     m_strDesc;
+    /**
+     * @brief  头像图片二进制
+     * @note   类型 std::string；类/结构体成员变量。
+     */
+    std::string     m_strAvatar;
     /**
      * @brief  所在房间号
      * @note   类型 std::string；类/结构体成员变量。

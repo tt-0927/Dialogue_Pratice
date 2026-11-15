@@ -3,13 +3,15 @@
  * @brief      用户领域业务的实现。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-15 JaTin 增加头像的登录恢复、校验与持久化。
  */
 
 #include "server/business/UserService.h"
 
 #include <optional>
 
+#include "common/Base64.h"
 #include "server/core/Logger.h"
 #include "server/core/TimeUtil.h"
 #include "server/core/Validation.h"
@@ -20,7 +22,7 @@ namespace {
 /**
  * @brief      构造下发给客户端的资料快照。
  * @param[in] stS            会话；类型 const CSession&。
- * @return     含 userId / name / age / desc 的 JSON 对象。
+ * @return     含 userId / name / age / desc / avatar 的 JSON 对象。
  * @author     JaTin
  */
 Json profileJson(const CSession& stS) {
@@ -29,6 +31,7 @@ Json profileJson(const CSession& stS) {
     stP["name"] = stS.name();
     stP["age"] = stS.age();
     stP["desc"] = stS.desc();
+    stP["avatar"] = base64Encode(stS.avatar());
     return stP;
 }
 
@@ -146,6 +149,7 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
         stS.setName(stUser->nickname);
         stS.setAge(stUser->age);
         stS.setDesc(stUser->description);
+        stS.setAvatar(stUser->m_strAvatar);
         m_stCtx.users().touchLogin(stUser->id);
         LOG_INFO("session#%llu 匹配到账号 #%lld（%s，%s）",
                  static_cast<unsigned long long>(stS.id()),
@@ -155,6 +159,7 @@ void CUserService::onLogin(CSession& stS, const Json& stJ) {
         stS.setName(strName);
         stS.setAge(nAge);
         stS.setDesc(strDesc);
+        stS.setAvatar(std::string());
         LOG_INFO("session#%llu 匿名登录（昵称 '%s' 不在用户库）",
                  static_cast<unsigned long long>(stS.id()), strName.c_str());
     }
@@ -306,8 +311,9 @@ void CUserService::onRegister(CSession& stS, const Json& stJ) {
 }
 
 /**
- * @brief      更新 on 个人资料；实现上向目标会话或整个房间下发数据。
- * @param[out] stS            目标会话对象；类型 CSession&。
+ * @brief      更新资料：只覆盖请求里出现的字段；持久账号同时写回数据库。
+ * @details    头像字段：字符串为 Base64 JPEG（上限 kMaxAvatarBytes 字节）， null 表示清除头像恢复首字默认图。改名后会向同房间广播 rename 系统消息。
+ * @param[out] stS            会话；类型 CSession&。
  * @param[in] stJ            输入数据；类型 const Json&。
  * @return     无返回值；处理结果通过成员状态或信号对外体现。
  * @author     JaTin
@@ -355,12 +361,51 @@ void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
         }
     }
 
+    /* 头像：null 清除；字符串为 Base64 JPEG，解码后校验大小。 */
+    std::string strNewAvatar = stS.avatar();
+    if (stJ.contains("avatar")) {
+        if (stJ["avatar"].is_null()) {
+            strNewAvatar.clear();
+        } else if (stJ["avatar"].is_string()) {
+            std::string strDecoded = base64Decode(stJ["avatar"].get<std::string>());
+            if (strDecoded.empty()) {
+                m_stCtx.sendError(stS, "bad_avatar", "avatar must be valid base64");
+                return;
+            }
+            if (strDecoded.size() > kMaxAvatarBytes) {
+                m_stCtx.sendError(stS, "bad_avatar", "avatar must be <= 32 KiB after decode");
+                return;
+            }
+            strNewAvatar = std::move(strDecoded);
+        } else {
+            m_stCtx.sendError(stS, "bad_payload", "field 'avatar' must be a string or null");
+            return;
+        }
+    }
+
     const std::string strOldName = stS.name();
     const bool nRenamed = (strNewName != strOldName);
 
     stS.setName(strNewName);
     stS.setAge(nNewAge);
     stS.setDesc(strNewDesc);
+    stS.setAvatar(strNewAvatar);
+
+    /* 持久账号写回数据库；失败不影响本次会话生效，但记录日志供排查。 */
+    if (stS.accountId() > 0) {
+        UserRecord_S stRecord;
+        stRecord.id = stS.accountId();
+        stRecord.nickname = strNewName;
+        stRecord.age = nNewAge;
+        stRecord.description = strNewDesc;
+        stRecord.m_strAvatar = strNewAvatar;
+        std::string strError;
+        if (!m_stCtx.users().updateProfile(stRecord, &strError)) {
+            LOG_WARN("session#%llu 资料写库失败（account #%lld）：%s",
+                     static_cast<unsigned long long>(stS.id()),
+                     static_cast<long long>(stS.accountId()), strError.c_str());
+        }
+    }
 
     Json stResp = profileJson(stS);
     stResp["ok"] = true;
@@ -382,8 +427,10 @@ void CUserService::onUpdateProfile(CSession& stS, const Json& stJ) {
         m_stCtx.broadcastRoom(stS.room(), OpCode_EN::SystemMsg, stSys, 0);
     }
 
-    LOG_INFO("session#%llu profile updated (name='%s', age=%d, desc=%zu B)",
-             static_cast<unsigned long long>(stS.id()), strNewName.c_str(), nNewAge, strNewDesc.size());
+    LOG_INFO("session#%llu profile updated (name='%s', age=%d, desc=%zu B, avatar=%zu B%s)",
+             static_cast<unsigned long long>(stS.id()), strNewName.c_str(), nNewAge,
+             strNewDesc.size(), strNewAvatar.size(),
+             stS.accountId() > 0 ? ", persisted" : ", session-only");
 }
 
 /**

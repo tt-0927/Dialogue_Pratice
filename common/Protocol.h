@@ -3,7 +3,8 @@
  * @brief      Protocol 头文件，声明相关类型与接口。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-14 JaTin 增加个人历史房间查询与头像资料字段。
  */
 
 /**
@@ -93,6 +94,11 @@ enum class OpCode_EN : uint8_t {
                              * @details {"durationMs":3200,"opus":"<base64 DPV1 容器>"}  语音消息。
                              */
     Voice         = 0x09,
+    /**
+     * @brief  查询当前持久账号的历史房间；匿名账号返回空列表。
+     * @details 请求负载为 {}；响应使用 HistoryRoomList。
+     */
+    ListHistoryRooms = 0x0A,
 
     /**
      * @brief  ---- 服务端 -> 客户端 ----。
@@ -140,6 +146,12 @@ enum class OpCode_EN : uint8_t {
      * @brief  {"ok":true,"userId":5,"username":"bob","nickname":"Bob"}
      */
     RegisterResp = 0x8B,
+    /**
+     * @brief  当前账号的历史房间，按最近活跃时间倒序排列。
+     * @details {"rooms":[{"room":"1001","lastSender":"alice",
+     *          "lastMessage":"hello","lastTs":1760000000000}]}。
+     */
+    HistoryRoomList = 0x8C,
 };
 
 /**
@@ -152,6 +164,11 @@ constexpr uint32_t kMaxVoiceDurationMs = 20000;
  * @note   取值 32 * 1024。
  */
 constexpr size_t   kMaxVoiceBytes      = 32 * 1024;
+
+/**
+ * @brief  解码后的头像 JPEG 数据上限；Base64 后仍能放入单个协议帧。
+ */
+constexpr size_t   kMaxAvatarBytes     = 32 * 1024;
 
 /**
  * @brief      获取操作码 code 名称。

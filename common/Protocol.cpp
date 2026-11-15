@@ -3,7 +3,8 @@
  * @brief      Protocol 实现文件，包含相关接口的具体实现。
  * @author     JaTin
  * @date       2026-11-13
- * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释。
+ * @note       修改记录：2026-11-14 JaTin 统一为 Doxygen 风格注释；
+ *             2026-11-14 JaTin 增加个人历史房间查询操作码名称。
  */
 
 /**
@@ -52,6 +53,7 @@ const char* opCodeName(OpCode_EN enOp) {
         case OpCode_EN::UpdateProfile: return "UpdateProfile";
         case OpCode_EN::Register:  return "Register";
         case OpCode_EN::Voice:     return "Voice";
+        case OpCode_EN::ListHistoryRooms: return "ListHistoryRooms";
         case OpCode_EN::LoginResp: return "LoginResp";
         case OpCode_EN::RoomState: return "RoomState";
         case OpCode_EN::ChatPush:  return "ChatPush";
@@ -63,6 +65,7 @@ const char* opCodeName(OpCode_EN enOp) {
         case OpCode_EN::HistoryResp: return "HistoryResp";
         case OpCode_EN::VoicePush: return "VoicePush";
         case OpCode_EN::RegisterResp: return "RegisterResp";
+        case OpCode_EN::HistoryRoomList: return "HistoryRoomList";
     }
     return "Unknown";
 }
